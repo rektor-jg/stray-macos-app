@@ -1,6 +1,6 @@
 # Stray
 
-**Menu-bar app dla macOS, która łapie procesy porzucone przez agentów AI (Claude Code, Codex, Cursor) — zakleszczone, osierocone i przeciekające.**
+**Menu-bar app dla macOS, która łapie to, co agenty AI (Claude Code, Codex, Cursor) zostawiają po sobie w systemie: procesy zakleszczone, osierocone i przeciekające — oraz artefakty dyskowe, które przeżyły swój projekt.**
 
 Nie jest to kolejny monitor systemu. Activity Monitor pokaże ci, że *coś* zżera CPU.
 Stray mówi ci **czyje to jest, czy to jeszcze robi cokolwiek sensownego i czy można to ubić.**
@@ -88,6 +88,72 @@ Wszystkie progi konfigurowalne. Detektory to czyste funkcje `(okno próbek) -> [
 łatwe do testowania offline na nagranych sesjach.
 
 ---
+
+---
+
+## 3b. Drugi front: dysk
+
+Pomiar z tej samej maszyny, 18 sierpnia 2026. Dysk: **382 / 460 GB zajęte, 44 GB wolne (90%).**
+
+| Katalog | Rozmiar |
+|---|---|
+| `~/Library/Developer/Xcode/DerivedData` | 25 G |
+| `~/Library/Containers/com.docker.docker` | 24 G |
+| `~/Library/Developer/CoreSimulator` | 15 G |
+| `~/.gradle` | 15 G |
+| `~/Library/Caches` | 13 G |
+| `~/.npm/_cacache` | **12 G** |
+| `~/Documents/Repos` (w tym 5,8 G `node_modules` w 6 repo) | 13 G |
+| `~/.cache` | 5,6 G |
+| `~/.claude` (900 M) + scratchpady sesji (431 M) | **1,3 G** |
+
+### Kluczowe rozróżnienie
+
+Intuicja mówi „AI zapycha temp". Liczby mówią co innego: **dosłowny temp agenta to 1,3 GB — czyli
+nic.** Szkody są **pośrednie**. Agent nie zapycha dysku swoimi plikami, tylko tym, co *wywołuje*:
+
+- każde `npm install` w kolejnym prototypie → wpisy w `_cacache`, który urósł do **12 GB**
+  (typowy cache to 0,5–2 GB),
+- każdy build w symulatorze → nowy katalog `DerivedData` (28 katalogów, największy 9,1 GB),
+- każdy porzucony prototyp → `node_modules`, którego nikt nie skasuje.
+
+### Osierocone artefakty — dokładnie ta sama patologia co sieroty procesów
+
+Skan `DerivedData` pod kątem „czy projekt źródłowy jeszcze istnieje" znalazł **4 martwe katalogi,
+~1,7 GB**:
+
+```
+Runner-eieydxdd…  394 MB  →  /tmp/claude-501/…/scratchpad/probe/app/ios/Runner.xcworkspace
+Runner-cttlbvmc…  360 MB  →  ~/Desktop/sowka-app/.claude/worktrees/szare-karty-na-biel/…
+Runner-dyanstrn…  980 MB  →  ~/krzyzowki-edu/app/ios/Runner.xcworkspace
+Runner-dlcefyhy…    1 MB  →  ~/sowka-app/app/ios/Runner.xcworkspace
+```
+
+Pierwsze dwa są znamienne: **agent zrobił worktree / scratchpad, zbudował go w Xcode, katalog
+roboczy został potem sprzątnięty — a 754 MB `DerivedData` zostało na zawsze.** Xcode nigdy nie
+kasuje danych po projekcie, którego już nie ma.
+
+`WorkspacePath` z `info.plist` wskazujący na nieistniejącą ścieżkę to bajt w bajt ten sam sygnał
+co `PPID == 1`: **artefakt przeżył swojego rodzica.**
+
+### Detektory dyskowe
+
+| # | Nazwa | Sygnał | Pewność | Akcja |
+|---|---|---|---|---|
+| **D7** | **Dead artifact** | `DerivedData/*/info.plist` → `WorkspacePath` nie istnieje | **bardzo wysoka** | bezpieczne do skasowania |
+| **D8** | **Cache bloat** | `_cacache` / pnpm store / gradle caches ponad próg **AND** `atime` > 30 dni | wysoka | pokaż rozmiar + komenda czyszcząca |
+| **D9** | **Zombie node_modules** | `node_modules` w katalogu bez commita od 90 dni albo bez `package.json` obok | średnia | lista z rozmiarami |
+
+### Ograniczenia projektowe dla warstwy dyskowej
+
+1. **Skan dysku jest drogi** — `du` po `DerivedData` to sekundy, nie milisekundy.
+   Dlatego: **on-demand + raz na dobę w tle**, nigdy w pętli 3-sekundowej.
+   Warstwa procesowa i dyskowa mają całkowicie różne modele próbkowania.
+2. **Kasowanie jest nieodwracalne** — inaczej niż `kill`. Zawsze potwierdzenie, zawsze
+   z pokazaniem *co* i *ile*, nigdy automatycznie. `DerivedData`, `node_modules` i cache npm są
+   w 100% odtwarzalne, ale użytkownik i tak musi kliknąć.
+3. **Nie duplikujemy `npm cache clean`** — Stray ma *wykryć i wyjaśnić*, a potem zaproponować
+   właściwą komendę albo wykonać ją za zgodą. Nie piszemy własnego garbage collectora dla npm.
 
 ## 4. Anty-fałszywe-alarmy (najważniejszy moduł)
 
@@ -261,6 +327,7 @@ na sekrety (`sk-`, `gho_`, `ghp_`, `AKIA`, `Bearer `).
 | **v0.3** | **D3 (Leak)** + sparkline RSS (Swift Charts) | 2–3 wieczory |
 | **v0.4** | **D4/D5** — gniazda przez `proc_pidfdinfo`, detekcja „w użyciu" | 2–3 wieczory |
 | **v0.5** | Whitelist, ekran ustawień, `LaunchAgent` (autostart), maskowanie sekretów | 2 wieczory |
+| **v0.6** | **Warstwa dyskowa** — D7/D8/D9, osobna zakładka, skan on-demand | 3–4 wieczory |
 | **v1.0** | Notaryzacja, `.dmg`, Homebrew cask, README po angielsku, atrybucja sesji dla Claude Code / Codex / Cursor | — |
 
 **v0.1 jest samodzielnie użyteczne** — sama lista sierot z przyciskiem kill już rozwiązuje

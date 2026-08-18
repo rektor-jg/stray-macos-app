@@ -145,3 +145,69 @@ trzeba sprawdzić, czy ktoś jest podpięty do portu.
 3. **Sierota traci rodzica, ale demon pamięta.** `ps` post factum pokaże `PPID 1` i nic więcej.
    Aplikacja rezydentna widziała ten proces, *zanim* osierociał — i dlatego może powiedzieć,
    która sesja go zostawiła. To jest uzasadnienie istnienia aplikacji zamiast skryptu.
+
+---
+
+## Aneks — warstwa dyskowa (ten sam dzień)
+
+Hipoteza wyjściowa: „agenty zapychają temp". Pomiar ją obalił i podmienił na ciekawszą.
+
+```console
+$ df -h /System/Volumes/Data
+/dev/disk3s1  460Gi  382Gi  44Gi  90%      ← 90% zajęte
+```
+
+```console
+$ du -sh ~/.claude /private/tmp/claude-501
+900M  ~/.claude          (818M to projects/ — transkrypty sesji)
+431M  /private/tmp/claude-501   (15 katalogów scratchpad)
+```
+
+**Dosłowny temp agenta: 1,3 GB.** Czyli nic. A teraz reszta:
+
+```console
+$ du -sh ~/Library/Developer/Xcode/DerivedData   25G
+$ du -sh ~/Library/Containers/com.docker.docker  24G
+$ du -sh ~/Library/Developer/CoreSimulator       15G
+$ du -sh ~/.gradle                               15G
+$ du -sh ~/Library/Caches                        13G
+$ du -sh ~/.npm/_cacache                         12G     ← typowy cache to 0,5–2 GB
+$ du -sh ~/Documents/Repos                       13G     (5,8G to node_modules w 6 repo)
+$ du -sh ~/.cache                                5,6G
+```
+
+Wniosek: **agent nie zapycha dysku swoimi plikami, tylko tym, co wywołuje.**
+Każde `npm install` w kolejnym prototypie, każdy build w symulatorze, każdy porzucony projekt.
+
+### Znalezisko: osierocone DerivedData
+
+`info.plist` każdego katalogu `DerivedData` zawiera `WorkspacePath`. Sprawdzenie, czy ta ścieżka
+jeszcze istnieje, dało 4 martwe katalogi (~1,7 GB) z 28:
+
+```
+Runner-eieydxdd…  394 MB → /tmp/claude-501/…/scratchpad/probe/app/ios/Runner.xcworkspace
+Runner-cttlbvmc…  360 MB → ~/Desktop/sowka-app/.claude/worktrees/szare-karty-na-biel/…
+Runner-dyanstrn…  980 MB → ~/krzyzowki-edu/app/ios/Runner.xcworkspace
+Runner-dlcefyhy…    1 MB → ~/sowka-app/app/ios/Runner.xcworkspace
+```
+
+Dwa pierwsze wskazują na **scratchpad sesji agenta** i na **git worktree utworzony przez agenta**.
+Oba katalogi robocze zostały posprzątane. `DerivedData` — nie. Xcode nie ma żadnego mechanizmu,
+który by to zauważył.
+
+Komenda, która to znajduje:
+
+```bash
+for d in ~/Library/Developer/Xcode/DerivedData/*/; do
+  src=$(plutil -extract WorkspacePath raw "$d/info.plist" 2>/dev/null)
+  [ -n "$src" ] && [ ! -e "$src" ] && echo "$(du -sh "$d" | cut -f1)  $src"
+done
+```
+
+### Dlaczego to jest ta sama historia
+
+`PPID == 1` i „`WorkspacePath` nie istnieje" to ten sam sygnał w dwóch różnych warstwach systemu:
+**artefakt przeżył swojego rodzica i nikt się do tego nie przyznaje.**
+Proces po sesji, która umarła. Katalog build po projekcie, którego już nie ma.
+
+Żadne istniejące narzędzie nie łączy tych kropek, bo żadne nie ma pojęcia o istnieniu sesji agenta.
