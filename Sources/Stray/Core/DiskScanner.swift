@@ -9,11 +9,11 @@ enum DiskCategory: String, Codable, Sendable, CaseIterable {
 
     var label: String {
         switch self {
-        case .agentData:    return "Dane agentów"
-        case .deadArtifact: return "Martwe artefakty"
-        case .buildCache:   return "Cache buildów"
-        case .packageCache: return "Cache pakietów"
-        case .nodeModules:  return "node_modules"
+        case .agentData:    return L("disk.category.agentData")
+        case .deadArtifact: return L("disk.category.deadArtifact")
+        case .buildCache:   return L("disk.category.buildCache")
+        case .packageCache: return L("disk.category.packageCache")
+        case .nodeModules:  return L("disk.category.nodeModules")
         }
     }
 }
@@ -70,16 +70,16 @@ enum DiskScanner {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
 
         // 1. Katalogi należące wprost do agentów — pomiar bezpośredni.
-        progress?("katalogi agentów")
+        progress?(L("disk.stage.agents"))
         for (path, name, safe, note) in [
             ("\(home)/.claude/projects", "~/.claude/projects", false,
-             "transkrypty sesji — kasowanie traci historię rozmów"),
+             L("disk.note.transcripts")),
             ("\(home)/.claude/file-history", "~/.claude/file-history", true,
-             "kopie plików sprzed edycji"),
-            ("\(home)/.claude/image-cache", "~/.claude/image-cache", true, "cache obrazów"),
-            ("\(home)/.codex", "~/.codex", false, "dane Codex"),
-            ("/private/tmp/claude-501", "scratchpady sesji", true,
-             "katalogi robocze sesji — sesje dawno zakończone"),
+             L("disk.note.filehistory")),
+            ("\(home)/.claude/image-cache", "~/.claude/image-cache", true, L("disk.note.imagecache")),
+            ("\(home)/.codex", "~/.codex", false, L("disk.note.codex")),
+            ("/private/tmp/claude-501", L("disk.name.scratchpads"), true,
+             L("disk.note.scratchpads")),
         ] {
             guard let bytes = size(of: path), bytes > 0 else { continue }
             report.items.append(DiskItem(
@@ -90,15 +90,15 @@ enum DiskScanner {
         }
 
         // 2. DerivedData — po katalogu na projekt, z weryfikacją, czy projekt jeszcze istnieje.
-        progress?("DerivedData")
+        progress?(L("disk.stage.derived"))
         report.items.append(contentsOf: scanDerivedData(home: home))
 
         // 3. Cache pakietów — wywnioskowane. Nie da się rozdzielić, ile z tego
         //    wynikło z pracy agenta, a ile z własnych `npm install`.
-        progress?("cache pakietów")
+        progress?(L("disk.stage.caches"))
         for (path, name, cmd) in [
-            ("\(home)/.npm/_cacache", "cache npm", "npm cache verify"),
-            ("\(home)/Library/pnpm/store", "store pnpm", "pnpm store prune"),
+            ("\(home)/.npm/_cacache", L("disk.name.npm"), "npm cache verify"),
+            ("\(home)/Library/pnpm/store", L("disk.name.pnpm"), "pnpm store prune"),
             ("\(home)/.cache", "~/.cache", nil),
         ] as [(String, String, String?)] {
             guard let bytes = size(of: path), bytes > 0 else { continue }
@@ -106,12 +106,12 @@ enum DiskScanner {
                 path: path, displayName: name, bytes: bytes,
                 category: .packageCache, confidenceRaw: Confidence.inferred.rawValue,
                 safeToDelete: cmd != nil,
-                note: "odtwarzalne, ale nie da się orzec, ile z tego to sprawka agenta",
+                note: L("disk.note.cache"),
                 suggestedCommand: cmd))
         }
 
         // 4. node_modules — z rozróżnieniem, czy w repo są ślady agenta.
-        progress?("node_modules")
+        progress?(L("disk.stage.modules"))
         report.items.append(contentsOf: scanNodeModules(home: home))
 
         report.durationSeconds = Date().timeIntervalSince(started)
@@ -148,8 +148,8 @@ enum DiskScanner {
                     confidenceRaw: (fromAgent ? Confidence.traced : .inferred).rawValue,
                     safeToDelete: true,
                     note: fromAgent
-                        ? "projekt agenta już nie istnieje: \(shorten(workspace ?? "", home))"
-                        : "projekt już nie istnieje: \(shorten(workspace ?? "", home))",
+                        ? L("disk.note.deadagent", shorten(workspace ?? "", home))
+                        : L("disk.note.dead", shorten(workspace ?? "", home)),
                     suggestedCommand: "rm -rf \"\(dir)\""))
             } else if fromAgent {
                 items.append(DiskItem(
@@ -157,7 +157,7 @@ enum DiskScanner {
                     bytes: bytes, category: .buildCache,
                     confidenceRaw: Confidence.traced.rawValue,
                     safeToDelete: false,
-                    note: "build z katalogu roboczego agenta — projekt wciąż istnieje",
+                    note: L("disk.note.agentbuild"),
                     suggestedCommand: nil))
             }
         }
@@ -198,8 +198,8 @@ enum DiskScanner {
                         confidenceRaw: (hasAgentTraces ? Confidence.inferred : .inferred).rawValue,
                         safeToDelete: false,
                         note: hasAgentTraces
-                            ? "projekt ze śladami agenta — odtwarzalne przez npm install"
-                            : "odtwarzalne przez npm install",
+                            ? L("disk.note.nodemodules.agent")
+                            : L("disk.note.nodemodules"),
                         suggestedCommand: nil))
                 }
             }

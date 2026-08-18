@@ -1,0 +1,129 @@
+/* --- ogólne --- */
+"lang.system" = "System";
+"app.quit" = "Quit Stray";
+"app.language" = "Language";
+"app.tracked" = "%d processes watched";
+"app.selfcost" = "Stray: %.2f%% CPU";
+
+/* --- zakładki --- */
+"tab.overview" = "Overview";
+"tab.processes" = "Processes";
+"tab.disk" = "Disk";
+
+/* --- detektory --- */
+"detector.spinner" = "Stuck";
+"detector.orphan" = "Orphan";
+"detector.leak" = "Memory leak";
+
+"spinner.summary" = "Stuck — %@, %.0f%% CPU";
+"spinner.cpu" = "%.0f%% CPU on average over %@";
+"spinner.thread" = "single-threaded the whole time";
+"spinner.idle" = "%llu wakeups, 0 B disk I/O";
+"spinner.age" = "alive for %@";
+"spinner.csw" = "%d context switches — the process never yields";
+
+"orphan.summary" = "Orphan — %@, %.0f MB, no connections";
+"orphan.summary.inuse" = "Orphan, but in use — %d conn., %.0f MB";
+"orphan.parent.dead" = "orphaned — parent (PID %d) is gone";
+"orphan.parent.unknown" = "already an orphan before Stray started — origin cannot be established";
+"orphan.age" = "alive for %@, subtree of %d processes, %.0f MB";
+"orphan.ports" = "listening on port %@, connections: %d";
+
+"leak.summary" = "RSS climbing — +%.0f MB in %@";
+"leak.now" = "now %.0f MB, growth +%.0f MB";
+"leak.monotonic" = "%.0f%% of samples non-decreasing";
+
+"attribution.agent" = "left behind by %@ session (PID %d)";
+"attribution.parent" = "parent: %@";
+"attribution.unknown" = "origin unknown — already an orphan before Stray started";
+
+/* --- rady --- */
+"advice.kill" = "Turn off";
+"advice.stale" = "Probably stale";
+"advice.keep" = "In use";
+"advice.protected" = "Protected";
+"advice.kill.spinner" = "a loop with no progress — this will never finish";
+"advice.stale.orphan" = "nobody is connected and the parent died long ago";
+"advice.keep.orphan" = "someone is connected — the server is in use";
+"advice.stale.leak" = "memory grows monotonically — a restart frees it instantly";
+"advice.protected.agent" = "active agent session — Stray never advises killing one";
+
+/* --- pewność --- */
+"confidence.measured" = "measured";
+"confidence.traced" = "traced";
+"confidence.inferred" = "inferred";
+"confidence.measured.why" = "agent process or its own directory — counted directly";
+"confidence.traced.why" = "recorded ancestry or a path inside an agent working directory";
+"confidence.inferred.why" = "circumstantial project evidence (CLAUDE.md, .claude/, .cursor/) — an estimate, not a measurement";
+
+/* --- przegląd --- */
+"overview.now" = "Now";
+"overview.now.sub" = "AI at this moment";
+"overview.processes" = "AI processes";
+"overview.processes.sub" = "%d agents + %d descendants";
+"overview.cpu" = "CPU";
+"overview.cpu.sub" = "combined";
+"overview.memory" = "Memory";
+"overview.memory.sub" = "RSS";
+"overview.unattributed" = "%d unattributed processes (%@) — orphaned before Stray started, so not counted towards AI";
+"overview.today" = "Today";
+"overview.today.sub" = "since midnight";
+"overview.cputime" = "CPU time";
+"overview.cputime.sub" = "%.1f h this week";
+"overview.peak" = "Peak memory";
+"overview.peak.sub" = "up to %d processes";
+"overview.reclaimed" = "Reclaimed";
+"overview.reclaimed.sub" = "%d cleaned up";
+"overview.advice" = "Worth turning off";
+"overview.advice.sub" = "%d items";
+"overview.disk" = "Disk";
+"overview.disk.sub" = "%@ tied to AI";
+"overview.disk.reclaimable" = "Safely reclaimable: %@";
+"overview.method" = "Where these numbers come from";
+"overview.method.note" = "Processes orphaned before Stray started have no recorded ancestry and are never counted towards the AI footprint.";
+
+/* --- procesy --- */
+"proc.clean" = "All clear";
+"proc.clean.sub" = "%d processes watched";
+"proc.report" = "Report";
+"proc.copied" = "Copied";
+"proc.kill" = "Kill";
+"proc.more" = "More";
+"proc.less" = "Less";
+"proc.ignore" = "Ignore this process";
+
+/* --- dysk --- */
+"disk.category.agentData" = "Agent data";
+"disk.category.deadArtifact" = "Dead artifacts";
+"disk.category.buildCache" = "Build caches";
+"disk.category.packageCache" = "Package caches";
+"disk.category.nodeModules" = "node_modules";
+"disk.scanning" = "Scanning: %@…";
+"disk.notscanned" = "No disk scan has run yet";
+"disk.scannow" = "Scan now";
+"disk.onlyreclaimable" = "Only safe to delete";
+"disk.rescan" = "A scan takes about %d s";
+"disk.total" = "Total %@";
+"disk.reclaimable" = "safely reclaimable %@";
+"disk.copy" = "Copy";
+
+"disk.note.transcripts" = "session transcripts — deleting loses conversation history";
+"disk.note.filehistory" = "copies of files before edits";
+"disk.note.imagecache" = "image cache";
+"disk.note.codex" = "Codex data";
+"disk.note.scratchpads" = "session working directories — sessions long finished";
+"disk.note.deadagent" = "agent project no longer exists: %@";
+"disk.note.dead" = "project no longer exists: %@";
+"disk.note.agentbuild" = "build from an agent working directory — the project still exists";
+"disk.note.cache" = "rebuildable, but there is no way to tell how much of it the agent caused";
+"disk.note.nodemodules.agent" = "project with agent traces — rebuildable via npm install";
+"disk.note.nodemodules" = "rebuildable via npm install";
+"disk.name.npm" = "npm cache";
+"disk.name.pnpm" = "pnpm store";
+"disk.name.scratchpads" = "session scratchpads";
+
+/* --- etapy skanu --- */
+"disk.stage.agents" = "agent directories";
+"disk.stage.derived" = "DerivedData";
+"disk.stage.caches" = "package caches";
+"disk.stage.modules" = "node_modules";

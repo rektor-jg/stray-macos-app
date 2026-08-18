@@ -31,9 +31,11 @@ struct StrayApp: App {
         .menuBarExtraStyle(.window)
     }
 
+    /// Ślad łapy: "stray" to bezpańskie zwierzę, więc nazwa i znak mówią to samo.
+    /// Poprzednia sylwetka pieszego (`figure.walk`) czytała się w pasku jak aplikacja
+    /// fitness — a w pasku menu, wśród samych figur geometrycznych, łapa jest
+    /// natychmiast rozpoznawalna.
     private var iconName: String {
-        if engine.criticalCount > 0 { return "figure.walk.motion" }
-        if engine.warningCount > 0 { return "figure.walk" }
-        return "figure.walk.departure"
+        engine.criticalCount > 0 || engine.warningCount > 0 ? "pawprint.fill" : "pawprint"
     }
 }

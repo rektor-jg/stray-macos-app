@@ -25,24 +25,24 @@ struct OverviewView: View {
 
     private var nowSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            sectionTitle("Teraz", "AI w tej chwili")
+            sectionTitle(L("overview.now"), L("overview.now.sub"))
             HStack(spacing: 8) {
-                StatTile(title: "Procesy AI",
+                StatTile(title: L("overview.processes"),
                          value: "\(engine.live.totalProcesses)",
-                         sub: "\(engine.live.agentProcesses) agentów + \(engine.live.descendantProcesses) potomków")
-                StatTile(title: "CPU",
+                         sub: L("overview.processes.sub", engine.live.agentProcesses, engine.live.descendantProcesses))
+                StatTile(title: L("overview.cpu"),
                          value: String(format: "%.0f%%", engine.live.cpuPercent),
-                         sub: "sumarycznie",
+                         sub: L("overview.cpu.sub"),
                          tint: Heat.forCPU(percent: engine.live.cpuPercent).color)
-                StatTile(title: "Pamięć",
+                StatTile(title: L("overview.memory"),
                          value: byteString(engine.live.rssBytes),
-                         sub: "RSS",
+                         sub: L("overview.memory.sub"),
                          tint: Heat.forMemory(bytes: engine.live.rssBytes).color)
             }
             if engine.live.unattributed > 0 {
                 HStack(spacing: 5) {
                     Image(systemName: "questionmark.circle").font(.caption2)
-                    Text("\(engine.live.unattributed) procesów nieprzypisanych (\(byteString(engine.live.unattributedRSSBytes))) — osierocone przed startem Stray, więc nie doliczam ich do AI")
+                    Text(L("overview.unattributed", engine.live.unattributed, byteString(engine.live.unattributedRSSBytes)))
                         .font(.caption2)
                 }
                 .foregroundStyle(.secondary)
@@ -54,17 +54,17 @@ struct OverviewView: View {
 
     private var todaySection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            sectionTitle("Dziś", "narastająco od północy")
+            sectionTitle(L("overview.today"), L("overview.today.sub"))
             HStack(spacing: 8) {
-                StatTile(title: "Czas CPU",
+                StatTile(title: L("overview.cputime"),
                          value: String(format: "%.1f h", engine.today.cpuHours),
-                         sub: String(format: "%.1f h w tygodniu", engine.weekCPUHours))
-                StatTile(title: "Szczyt pamięci",
+                         sub: L("overview.cputime.sub", engine.weekCPUHours))
+                StatTile(title: L("overview.peak"),
                          value: byteString(engine.today.peakRSSBytes),
-                         sub: "maks. \(engine.today.maxProcesses) procesów")
-                StatTile(title: "Odzyskane",
+                         sub: L("overview.peak.sub", engine.today.maxProcesses))
+                StatTile(title: L("overview.reclaimed"),
                          value: byteString(engine.today.reclaimedBytes),
-                         sub: "\(engine.today.killedProcesses) sprzątniętych",
+                         sub: L("overview.reclaimed.sub", engine.today.killedProcesses),
                          tint: engine.today.reclaimedBytes > 0 ? .green : .primary)
             }
         }
@@ -74,7 +74,7 @@ struct OverviewView: View {
 
     private var adviceSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            sectionTitle("Warto wyłączyć", "\(engine.actionable.count) pozycji")
+            sectionTitle(L("overview.advice"), L("overview.advice.sub", engine.actionable.count))
             ForEach(Array(engine.actionable.prefix(4).enumerated()), id: \.offset) { _, pair in
                 let (finding, advice) = pair
                 HStack(alignment: .top, spacing: 8) {
@@ -90,7 +90,7 @@ struct OverviewView: View {
                         Text(advice.text).font(.caption2).foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 4)
-                    Button("Wyłącz") { engine.kill(finding) }
+                    Button(L("advice.kill")) { engine.kill(finding) }
                         .controlSize(.small).buttonStyle(.bordered)
                 }
                 .padding(8)
@@ -103,7 +103,7 @@ struct OverviewView: View {
 
     private func diskSummary(_ report: DiskReport) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            sectionTitle("Dysk", byteString(report.grandTotal) + " powiązane z AI")
+            sectionTitle(L("overview.disk"), L("overview.disk.sub", byteString(report.grandTotal)))
             ShareBar(segments: [
                 (Double(report.total(.measured)), Confidence.measured.color),
                 (Double(report.total(.traced)), Confidence.traced.color),
@@ -119,7 +119,7 @@ struct OverviewView: View {
                 }
             }
             if report.reclaimable > 0 {
-                Text("Bezpiecznie odzyskiwalne: \(byteString(report.reclaimable))")
+                Text(L("overview.disk.reclaimable", byteString(report.reclaimable)))
                     .font(.caption).foregroundStyle(.green)
             }
         }
@@ -137,12 +137,12 @@ struct OverviewView: View {
                         }
                     }
                 }
-                Text("Procesy osierocone przed startem Stray nie mają zapisanej linii przodków i nigdy nie są doliczane do śladu AI.")
+                Text(L("overview.method.note"))
                     .font(.caption2).foregroundStyle(.tertiary).padding(.top, 2)
             }
             .padding(.top, 4)
         } label: {
-            Text("Skąd te liczby").font(.caption2).foregroundStyle(.secondary)
+            Text(L("overview.method")).font(.caption2).foregroundStyle(.secondary)
         }
     }
 

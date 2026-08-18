@@ -47,10 +47,10 @@ extension Advice {
     }
     var short: String {
         switch self {
-        case .killNow:       return "Wyłącz"
-        case .probablyStale: return "Prawdopodobnie zbędne"
-        case .keep:          return "W użyciu"
-        case .protected:     return "Chronione"
+        case .killNow:       return L("advice.kill")
+        case .probablyStale: return L("advice.stale")
+        case .keep:          return L("advice.keep")
+        case .protected:     return L("advice.protected")
         }
     }
 }

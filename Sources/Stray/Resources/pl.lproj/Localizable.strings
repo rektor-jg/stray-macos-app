@@ -1,0 +1,129 @@
+/* --- ogólne --- */
+"lang.system" = "Systemowy";
+"app.quit" = "Zakończ Stray";
+"app.language" = "Język";
+"app.tracked" = "%d procesów pod obserwacją";
+"app.selfcost" = "Stray: %.2f%% CPU";
+
+/* --- zakładki --- */
+"tab.overview" = "Przegląd";
+"tab.processes" = "Procesy";
+"tab.disk" = "Dysk";
+
+/* --- detektory --- */
+"detector.spinner" = "Zakleszczony";
+"detector.orphan" = "Sierota";
+"detector.leak" = "Wyciek pamięci";
+
+"spinner.summary" = "Zakleszczony — %@, %.0f%% CPU";
+"spinner.cpu" = "%.0f%% CPU średnio przez %@";
+"spinner.thread" = "1 wątek przez cały czas obserwacji";
+"spinner.idle" = "%llu wybudzeń, 0 B I/O dyskowego";
+"spinner.age" = "żyje od %@";
+"spinner.csw" = "%d przełączeń kontekstu — proces nie oddaje sterowania";
+
+"orphan.summary" = "Sierota — %@, %.0f MB, 0 połączeń";
+"orphan.summary.inuse" = "Sierota, ale w użyciu — %d poł., %.0f MB";
+"orphan.parent.dead" = "osierocony — rodzic (PID %d) już nie żyje";
+"orphan.parent.unknown" = "osierocony jeszcze zanim Stray wystartował — rodzica nie da się ustalić";
+"orphan.age" = "żyje od %@, poddrzewo %d procesów, %.0f MB";
+"orphan.ports" = "nasłuchuje na porcie %@, połączeń: %d";
+
+"leak.summary" = "RSS rośnie — +%.0f MB w %@";
+"leak.now" = "teraz %.0f MB, przyrost +%.0f MB";
+"leak.monotonic" = "%.0f%% próbek niemalejących";
+
+"attribution.agent" = "zostawione przez sesję %@ (PID %d)";
+"attribution.parent" = "rodzic: %@";
+"attribution.unknown" = "pochodzenie nieznane — proces był sierotą, zanim Stray wystartował";
+
+/* --- rady --- */
+"advice.kill" = "Wyłącz";
+"advice.stale" = "Prawdopodobnie zbędne";
+"advice.keep" = "W użyciu";
+"advice.protected" = "Chronione";
+"advice.kill.spinner" = "pętla bez postępu — ten proces już nigdy nie skończy pracy";
+"advice.stale.orphan" = "nikt nie jest podpięty, a rodzic dawno umarł";
+"advice.keep.orphan" = "ktoś jest podpięty — serwer jest w użyciu";
+"advice.stale.leak" = "pamięć rośnie monotonicznie — restart zwolni ją od razu";
+"advice.protected.agent" = "aktywna sesja agenta — Stray nigdy nie doradza jej ubicia";
+
+/* --- pewność --- */
+"confidence.measured" = "zmierzone";
+"confidence.traced" = "prześledzone";
+"confidence.inferred" = "wywnioskowane";
+"confidence.measured.why" = "proces agenta lub jego katalog — policzone bezpośrednio";
+"confidence.traced.why" = "zapisana linia przodków albo ścieżka katalogu roboczego agenta";
+"confidence.inferred.why" = "poszlaki w projekcie (CLAUDE.md, .claude/, .cursor/) — szacunek, nie pomiar";
+
+/* --- przegląd --- */
+"overview.now" = "Teraz";
+"overview.now.sub" = "AI w tej chwili";
+"overview.processes" = "Procesy AI";
+"overview.processes.sub" = "%d agentów + %d potomków";
+"overview.cpu" = "CPU";
+"overview.cpu.sub" = "sumarycznie";
+"overview.memory" = "Pamięć";
+"overview.memory.sub" = "RSS";
+"overview.unattributed" = "%d procesów nieprzypisanych (%@) — osierocone przed startem Stray, więc nie doliczam ich do AI";
+"overview.today" = "Dziś";
+"overview.today.sub" = "narastająco od północy";
+"overview.cputime" = "Czas CPU";
+"overview.cputime.sub" = "%.1f h w tygodniu";
+"overview.peak" = "Szczyt pamięci";
+"overview.peak.sub" = "maks. %d procesów";
+"overview.reclaimed" = "Odzyskane";
+"overview.reclaimed.sub" = "%d sprzątniętych";
+"overview.advice" = "Warto wyłączyć";
+"overview.advice.sub" = "%d pozycji";
+"overview.disk" = "Dysk";
+"overview.disk.sub" = "%@ powiązane z AI";
+"overview.disk.reclaimable" = "Bezpiecznie odzyskiwalne: %@";
+"overview.method" = "Skąd te liczby";
+"overview.method.note" = "Procesy osierocone przed startem Stray nie mają zapisanej linii przodków i nigdy nie są doliczane do śladu AI.";
+
+/* --- procesy --- */
+"proc.clean" = "Czysto";
+"proc.clean.sub" = "%d procesów pod obserwacją";
+"proc.report" = "Raport";
+"proc.copied" = "Skopiowano";
+"proc.kill" = "Ubij";
+"proc.more" = "Więcej";
+"proc.less" = "Mniej";
+"proc.ignore" = "Ignoruj ten proces";
+
+/* --- dysk --- */
+"disk.category.agentData" = "Dane agentów";
+"disk.category.deadArtifact" = "Martwe artefakty";
+"disk.category.buildCache" = "Cache buildów";
+"disk.category.packageCache" = "Cache pakietów";
+"disk.category.nodeModules" = "node_modules";
+"disk.scanning" = "Skanuję: %@…";
+"disk.notscanned" = "Skan dyskowy nie był jeszcze uruchomiony";
+"disk.scannow" = "Skanuj teraz";
+"disk.onlyreclaimable" = "Tylko bezpieczne do usunięcia";
+"disk.rescan" = "Skan trwa ok. %d s";
+"disk.total" = "Razem %@";
+"disk.reclaimable" = "bezpiecznie odzyskiwalne %@";
+"disk.copy" = "Kopiuj";
+
+"disk.note.transcripts" = "transkrypty sesji — kasowanie traci historię rozmów";
+"disk.note.filehistory" = "kopie plików sprzed edycji";
+"disk.note.imagecache" = "cache obrazów";
+"disk.note.codex" = "dane Codex";
+"disk.note.scratchpads" = "katalogi robocze sesji — sesje dawno zakończone";
+"disk.note.deadagent" = "projekt agenta już nie istnieje: %@";
+"disk.note.dead" = "projekt już nie istnieje: %@";
+"disk.note.agentbuild" = "build z katalogu roboczego agenta — projekt wciąż istnieje";
+"disk.note.cache" = "odtwarzalne, ale nie da się orzec, ile z tego to sprawka agenta";
+"disk.note.nodemodules.agent" = "projekt ze śladami agenta — odtwarzalne przez npm install";
+"disk.note.nodemodules" = "odtwarzalne przez npm install";
+"disk.name.npm" = "cache npm";
+"disk.name.pnpm" = "store pnpm";
+"disk.name.scratchpads" = "scratchpady sesji";
+
+/* --- etapy skanu --- */
+"disk.stage.agents" = "katalogi agentów";
+"disk.stage.derived" = "DerivedData";
+"disk.stage.caches" = "cache pakietów";
+"disk.stage.modules" = "node_modules";

@@ -7,8 +7,8 @@ struct ProcessesView: View {
         if engine.findings.isEmpty {
             VStack(spacing: 6) {
                 Image(systemName: "checkmark.circle").font(.title2).foregroundStyle(.green)
-                Text("Czysto").font(.callout)
-                Text("\(engine.trackedCount) procesów pod obserwacją")
+                Text(L("proc.clean")).font(.callout)
+                Text(L("proc.clean.sub", engine.trackedCount))
                     .font(.caption).foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -77,15 +77,15 @@ struct FindingRow: View {
             }
 
             HStack(spacing: 8) {
-                Button(copied ? "Skopiowano" : "Raport") {
+                Button(copied ? L("proc.copied") : L("proc.report")) {
                     engine.copyReport(finding); copied = true
                 }
                 .disabled(copied)
-                Button("Ubij") { engine.kill(finding) }
-                    .disabled(!advice.actionable && advice.short == "Chronione")
-                Button(expanded ? "Mniej" : "Więcej") { expanded.toggle() }
+                Button(L("proc.kill")) { engine.kill(finding) }
+                    .disabled(!advice.actionable && advice.short == L("advice.protected"))
+                Button(expanded ? L("proc.less") : L("proc.more")) { expanded.toggle() }
                 Spacer()
-                Menu { Button("Ignoruj ten proces") { engine.ignore(finding) } }
+                Menu { Button(L("proc.ignore")) { engine.ignore(finding) } }
                     label: { Image(systemName: "ellipsis") }
                     .menuStyle(.borderlessButton).frame(width: 24)
             }

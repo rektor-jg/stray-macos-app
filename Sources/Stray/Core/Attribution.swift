@@ -18,17 +18,17 @@ enum Confidence: Int, Comparable, Sendable, CaseIterable {
 
     var label: String {
         switch self {
-        case .measured: return "zmierzone"
-        case .traced:   return "prześledzone"
-        case .inferred: return "wywnioskowane"
+        case .measured: return L("confidence.measured")
+        case .traced:   return L("confidence.traced")
+        case .inferred: return L("confidence.inferred")
         }
     }
 
     var explanation: String {
         switch self {
-        case .measured: return "proces agenta lub jego katalog — policzone bezpośrednio"
-        case .traced:   return "zapisana linia przodków albo ścieżka katalogu roboczego agenta"
-        case .inferred: return "poszlaki w projekcie (CLAUDE.md, .claude/, .cursor/) — szacunek, nie pomiar"
+        case .measured: return L("confidence.measured.why")
+        case .traced:   return L("confidence.traced.why")
+        case .inferred: return L("confidence.inferred.why")
         }
     }
 }
@@ -89,18 +89,16 @@ enum Advisor {
     /// która czyta tę rekomendację.
     static func advise(finding: Finding, isAgentItself: Bool) -> Advice {
         if isAgentItself {
-            return .protected("aktywna sesja agenta — Stray nigdy nie doradza jej ubicia")
+            return .protected(L("advice.protected.agent"))
         }
         switch finding.detector {
         case .spinner:
-            return .killNow("pętla bez postępu — ten proces już nigdy nie skończy pracy")
+            return .killNow(L("advice.kill.spinner"))
         case .orphan:
-            if finding.severity == .info {
-                return .keep("ktoś jest podpięty — serwer jest w użyciu")
-            }
-            return .probablyStale("nikt nie jest podpięty, a rodzic dawno umarł")
+            if finding.severity == .info { return .keep(L("advice.keep.orphan")) }
+            return .probablyStale(L("advice.stale.orphan"))
         case .leak:
-            return .probablyStale("pamięć rośnie monotonicznie — restart zwolni ją od razu")
+            return .probablyStale(L("advice.stale.leak"))
         }
     }
 }

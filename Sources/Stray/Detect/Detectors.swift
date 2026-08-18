@@ -57,13 +57,13 @@ struct SpinnerDetector: Detector {
         guard !Whitelist.isLongRunningBuild(w.meta.command) else { return nil }
 
         var detail = [
-            String(format: "%.0f%% CPU średnio przez %@", w.cpuPercent, fmt(w.span)),
-            "1 wątek przez cały czas obserwacji",
-            "\(w.deltaWakeups) wybudzeń, 0 B I/O dyskowego",
-            "żyje od \(fmt(w.age))",
+            L("spinner.cpu", w.cpuPercent, fmt(w.span)),
+            L("spinner.thread"),
+            L("spinner.idle", w.deltaWakeups),
+            L("spinner.age", fmt(w.age)),
         ]
         if w.deltaContextSwitches < 50 {
-            detail.append("\(w.deltaContextSwitches) przełączeń kontekstu — proces nie oddaje sterowania")
+            detail.append(L("spinner.csw", w.deltaContextSwitches))
         }
 
         return Finding(
@@ -71,7 +71,7 @@ struct SpinnerDetector: Detector {
             severity: .critical,
             pid: w.meta.pid,
             title: Titles.short(for: w.meta),
-            summary: String(format: "Zakleszczony — %@, %.0f%% CPU", fmt(w.age), w.cpuPercent),
+            summary: L("spinner.summary", fmt(w.age), w.cpuPercent),
             detail: detail,
             attribution: Titles.attribution(for: w.meta),
             reclaimBytes: w.subtreeRSS,
@@ -113,14 +113,13 @@ struct OrphanDetector: Detector {
 
         var detail = [
             w.orphanedBeforeWeStarted
-                ? "osierocony jeszcze zanim Stray wystartował — rodzica nie da się ustalić"
-                : "osierocony — rodzic (PID \(w.meta.originalPPID)) już nie żyje",
-            String(format: "żyje od %@, poddrzewo %d procesów, %.0f MB",
-                   fmt(w.age), w.descendants.count + 1, w.subtreeRSSMB),
+                ? L("orphan.parent.unknown")
+                : L("orphan.parent.dead", w.meta.originalPPID),
+            L("orphan.age", fmt(w.age), w.descendants.count + 1, w.subtreeRSSMB),
         ]
         if !sockets.listeningPorts.isEmpty {
             let ports = sockets.listeningPorts.map(String.init).joined(separator: ", ")
-            detail.append("nasłuchuje na porcie \(ports), połączeń: \(sockets.established)")
+            detail.append(L("orphan.ports", ports, sockets.established))
         }
 
         // "W użyciu" bije "sierota". Metro z podpiętym symulatorem jest żywe —
@@ -131,9 +130,8 @@ struct OrphanDetector: Detector {
             pid: w.meta.pid,
             title: Titles.short(for: w.meta),
             summary: inUse
-                ? String(format: "Sierota, ale w użyciu — %d poł., %.0f MB",
-                         sockets.established, w.subtreeRSSMB)
-                : String(format: "Sierota — %@, %.0f MB, 0 połączeń", fmt(w.age), w.subtreeRSSMB),
+                ? L("orphan.summary.inuse", sockets.established, w.subtreeRSSMB)
+                : L("orphan.summary", fmt(w.age), w.subtreeRSSMB),
             detail: detail,
             attribution: Titles.attribution(for: w.meta),
             reclaimBytes: inUse ? 0 : w.subtreeRSS,
@@ -158,10 +156,10 @@ struct LeakDetector: Detector {
             severity: .warning,
             pid: w.meta.pid,
             title: Titles.short(for: w.meta),
-            summary: String(format: "RSS rośnie — +%.0f MB w %@", w.rssGrowthMB, fmt(w.span)),
+            summary: L("leak.summary", w.rssGrowthMB, fmt(w.span)),
             detail: [
-                String(format: "teraz %.0f MB, przyrost +%.0f MB", w.rssMB, w.rssGrowthMB),
-                String(format: "%.0f%% próbek niemalejących", w.monotonicRSSRatio * 100),
+                L("leak.now", w.rssMB, w.rssGrowthMB),
+                L("leak.monotonic", w.monotonicRSSRatio * 100),
             ],
             attribution: Titles.attribution(for: w.meta),
             reclaimBytes: 0,
@@ -211,15 +209,13 @@ enum Titles {
 
     static func attribution(for meta: ProcMeta) -> String? {
         if let agent = meta.agentSession {
-            return "zostawione przez sesję \(agent) (PID \(meta.originalPPID))"
+            return L("attribution.agent", agent, meta.originalPPID)
         }
         guard !meta.originalAncestry.isEmpty else {
             // Stray wystartował już po osieroceniu — linii przodków nie ma jak odtworzyć.
             // Od następnego takiego procesu będzie, bo zobaczymy go za życia rodzica.
-            return meta.originalPPID <= 1
-                ? "pochodzenie nieznane — proces był sierotą, zanim Stray wystartował"
-                : nil
+            return meta.originalPPID <= 1 ? L("attribution.unknown") : nil
         }
-        return "rodzic: \(meta.originalAncestry.prefix(3).joined(separator: " ← "))"
+        return L("attribution.parent", meta.originalAncestry.prefix(3).joined(separator: " ← "))
     }
 }

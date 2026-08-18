@@ -9,16 +9,16 @@ struct DiskView: View {
             if let stage = engine.diskStage {
                 HStack(spacing: 6) {
                     ProgressView().controlSize(.small)
-                    Text("Skanuję: \(stage)…").font(.caption).foregroundStyle(.secondary)
+                    Text(L("disk.scanning", stage)).font(.caption).foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let report = engine.diskReport {
                 content(report)
             } else {
                 VStack(spacing: 8) {
-                    Text("Skan dyskowy nie był jeszcze uruchomiony")
+                    Text(L("disk.notscanned"))
                         .font(.caption).foregroundStyle(.secondary)
-                    Button("Skanuj teraz") { engine.scanDisk() }.controlSize(.small)
+                    Button(L("disk.scannow")) { engine.scanDisk() }.controlSize(.small)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -42,14 +42,14 @@ struct DiskView: View {
                     }
                 }
                 HStack {
-                    Toggle("Tylko bezpieczne do usunięcia", isOn: $showOnlyReclaimable)
+                    Toggle(L("disk.onlyreclaimable"), isOn: $showOnlyReclaimable)
                         .toggleStyle(.checkbox).font(.caption2)
                     Spacer()
                     Button { engine.scanDisk() } label: {
                         Image(systemName: "arrow.clockwise")
                     }
                     .buttonStyle(.plain).foregroundStyle(.secondary)
-                    .help("Skan trwa ok. \(Int(report.durationSeconds)) s")
+                    .help(L("disk.rescan", Int(report.durationSeconds)))
                 }
             }
             .padding(10)
@@ -66,9 +66,9 @@ struct DiskView: View {
 
             Divider()
             HStack {
-                Text("Razem \(byteString(report.grandTotal))").font(.caption2)
+                Text(L("disk.total", byteString(report.grandTotal))).font(.caption2)
                 Spacer()
-                Text("bezpiecznie odzyskiwalne \(byteString(report.reclaimable))")
+                Text(L("disk.reclaimable", byteString(report.reclaimable)))
                     .font(.caption2).foregroundStyle(.green)
             }
             .padding(.horizontal, 10).padding(.vertical, 6)
@@ -107,7 +107,7 @@ struct DiskItemRow: View {
                     Text(cmd)
                         .font(.system(.caption2, design: .monospaced))
                         .foregroundStyle(.tertiary).lineLimit(1).truncationMode(.middle)
-                    Button(copied ? "✓" : "Kopiuj") {
+                    Button(copied ? "✓" : L("disk.copy")) {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(cmd, forType: .string)
                         copied = true

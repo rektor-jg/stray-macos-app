@@ -15,9 +15,9 @@ enum DetectorID: String, Sendable {
 
     var label: String {
         switch self {
-        case .spinner: return "Zakleszczony"
-        case .orphan:  return "Sierota"
-        case .leak:    return "Wyciek pamięci"
+        case .spinner: return L("detector.spinner")
+        case .orphan:  return L("detector.orphan")
+        case .leak:    return L("detector.leak")
         }
     }
 }

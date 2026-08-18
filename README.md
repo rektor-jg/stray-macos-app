@@ -377,6 +377,31 @@ Stray --footprint   # zakładka Przegląd: ślad AI w systemie
 Stray --disk        # zakładka Dysk: przestrzeń zajęta przez AI
 ```
 
+## Języki — bez przełącznika
+
+Angielski i polski, ale **przełącznik jest niepotrzebny**: macOS sam wybiera lokalizację
+z listy preferowanych języków użytkownika. Base localization to angielski, więc każdy poza
+polskojęzycznym systemem dostaje angielski automatycznie.
+
+Nadpisanie istnieje mimo to — w menu `⋯` w nagłówku, obok „Zakończ". To jedyne miejsce
+w interfejsie, gdzie ustawienia mają sens, i jedyne, którego potrzebują.
+
+```bash
+# wymuszenie języka z zewnątrz, gdyby ktoś wolał tak
+defaults write app.stray.menubar stray.language -string pl
+```
+
+Oba pliki `.strings` są sprawdzane pod kątem parzystości kluczy, a testy porównują wynik
+detektorów z `L(...)`, nie z dosłownym napisem — inaczej zestaw testów przestawał przechodzić
+przy zmianie języka systemu (co się właśnie stało i zostało naprawione).
+
+## Ikona
+
+Ślad łapy. `stray` to bezpańskie zwierzę, więc nazwa i znak mówią to samo.
+Pierwotna sylwetka pieszego (`figure.walk`) czytała się w pasku jak aplikacja fitness —
+a wśród samych figur geometrycznych łapa jest natychmiast rozpoznawalna.
+Pusta = czysto, wypełniona = są znaleziska.
+
 ## Trzy zakładki
 
 **Przegląd** — ile AI zabiera z systemu: procesy i pamięć teraz, czas CPU dziś i w tygodniu,

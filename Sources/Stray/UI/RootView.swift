@@ -1,9 +1,15 @@
 import SwiftUI
 
 enum Tab: String, CaseIterable {
-    case overview = "Przegląd"
-    case processes = "Procesy"
-    case disk = "Dysk"
+    case overview, processes, disk
+
+    var title: String {
+        switch self {
+        case .overview:  return L("tab.overview")
+        case .processes: return L("tab.processes")
+        case .disk:      return L("tab.disk")
+        }
+    }
 
     var symbol: String {
         switch self {
@@ -16,6 +22,7 @@ enum Tab: String, CaseIterable {
 
 struct RootView: View {
     @ObservedObject var engine: Engine
+    @ObservedObject private var localizer = Localizer.shared
     @State private var tab: Tab = .overview
 
     var body: some View {
@@ -24,7 +31,7 @@ struct RootView: View {
             Divider()
             Picker("", selection: $tab) {
                 ForEach(Tab.allCases, id: \.self) { t in
-                    Label(t.rawValue, systemImage: t.symbol).tag(t)
+                    Label(t.title, systemImage: t.symbol).tag(t)
                 }
             }
             .pickerStyle(.segmented)
@@ -46,11 +53,12 @@ struct RootView: View {
             footer
         }
         .frame(width: 460)
+        .id(localizer.current)
     }
 
     private var header: some View {
         HStack(spacing: 6) {
-            Image(systemName: "figure.walk.motion")
+            Image(systemName: engine.criticalCount > 0 ? "pawprint.fill" : "pawprint")
                 .foregroundStyle(engine.criticalCount > 0 ? .red : .secondary)
             Text("Stray").font(.headline)
             if engine.criticalCount > 0 {
@@ -60,20 +68,28 @@ struct RootView: View {
                     .background(Capsule().fill(.red))
             }
             Spacer()
-            Button { NSApplication.shared.terminate(nil) } label: { Image(systemName: "power") }
-                .buttonStyle(.plain).foregroundStyle(.secondary).help("Zakończ Stray")
+            // Jedyne miejsce, gdzie jest miejsce na ustawienia — i jedyne, którego potrzebują.
+            Menu {
+                Picker(L("app.language"), selection: $localizer.current) {
+                    ForEach(Lang.allCases, id: \.self) { Text($0.label).tag($0) }
+                }
+                Divider()
+                Button(L("app.quit")) { NSApplication.shared.terminate(nil) }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+            }
+            .menuStyle(.borderlessButton).frame(width: 28).foregroundStyle(.secondary)
         }
         .padding(12)
     }
 
     private var footer: some View {
         HStack {
-            Text("\(engine.trackedCount) procesów pod obserwacją")
+            Text(L("app.tracked", engine.trackedCount))
                 .font(.caption2).foregroundStyle(.secondary)
             Spacer()
             // Narzędzie do łapania żarłoków musi publicznie pokazywać własny rachunek.
-            Text(String(format: "Stray: %.2f%% CPU",
-                        engine.selfCostMillis / (Sampler.interval * 1000) * 100))
+            Text(L("app.selfcost", engine.selfCostMillis / (Sampler.interval * 1000) * 100))
                 .font(.caption2).foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 12).padding(.vertical, 6)

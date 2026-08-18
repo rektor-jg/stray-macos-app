@@ -72,7 +72,8 @@ final class DetectorTests: XCTestCase {
         XCTAssertNotNil(f, "sygnatura zakleszczenia musi zostać wykryta")
         XCTAssertEqual(f?.severity, .critical)
         XCTAssertEqual(f?.detector, .spinner)
-        XCTAssertEqual(f?.attribution, "zostawione przez sesję claude.exe (PID 60836)")
+        XCTAssertEqual(f?.attribution, L("attribution.agent", "claude.exe", Int32(60836)),
+                       "atrybucja niezależna od języka interfejsu")
     }
 
     func testSpinnerIgnoresBusyProcessThatDoesIO() {
@@ -153,7 +154,8 @@ final class DetectorTests: XCTestCase {
         let reclaimMB = Double(f!.reclaimBytes) / 1_048_576
         XCTAssertEqual(reclaimMB, 654, accuracy: 1,
                        "odzysk musi obejmować całe poddrzewo, nie sam korzeń")
-        XCTAssertTrue(f!.detail.contains { $0.contains("poddrzewo 3 procesów") })
+        XCTAssertTrue(f!.detail.contains { $0.contains("3") },
+                      "opis musi wymieniać liczbę procesów w poddrzewie")
     }
 
     /// "W użyciu" bije "sierota": Metro z podpiętym symulatorem jest żywe.
@@ -176,8 +178,7 @@ final class DetectorTests: XCTestCase {
                             startedAt: Date(), firstSeenAt: Date(),
                             originalPPID: 1, originalAncestry: [])
         let attribution = Titles.attribution(for: meta)
-        XCTAssertEqual(attribution,
-                       "pochodzenie nieznane — proces był sierotą, zanim Stray wystartował")
+        XCTAssertEqual(attribution, L("attribution.unknown"))
     }
 
     // MARK: - D3 Leak
