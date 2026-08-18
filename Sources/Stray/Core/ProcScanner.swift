@@ -78,44 +78,120 @@ enum ProcScanner {
                 Int32(bitPattern: t.pbsd.pbi_ppid), started)
     }
 
+    /// Ślad agenta odczytany ze ZMIENNYCH ŚRODOWISKOWYCH procesu.
+    ///
+    /// To jest pomiar, nie zgadywanie po nazwie binarki. Środowisko dziedziczy się przez
+    /// `fork`/`exec`, więc potomek nosi te znaczniki przez całe życie — także wtedy, gdy
+    /// rodzic dawno umarł i `ppid` wynosi 1. Dzięki temu da się przypisać sesję nawet
+    /// procesom osieroconym, zanim Stray w ogóle wystartował.
+    struct AgentEnv: Sendable {
+        let vendor: String        // "claude", "codex", "cursor", "aider"
+        let sessionID: String?    // stabilny identyfikator sesji
+        let agentPID: Int32?      // PID sesji, która ten proces uruchomiła
+        let entrypoint: String?   // "cli", "vscode", …
+    }
+
+    /// Klucze, których wartości wolno nam odczytać. Wszystko poza tą listą jest
+    /// odrzucane, zanim opuści funkcję parsującą.
+    ///
+    /// To nie jest nadgorliwość: obok znaczników leży `CLAUDE_CODE_MESSAGING_TOKEN`,
+    /// czyli żywy sekret. Czytanie cudzego środowiska oznacza przechodzenie obok
+    /// haseł, kluczy API i tokenów — więc bierzemy wyłącznie to, co nazwane, i nigdy
+    /// nie zatrzymujemy reszty ani na chwilę dłużej niż trwa pętla.
+    private static let allowedEnvKeys: Set<String> = [
+        "CLAUDECODE", "CLAUDE_CODE_SESSION_ID", "CLAUDE_PID", "CLAUDE_CODE_ENTRYPOINT",
+        "CODEX_SESSION_ID", "CODEX_PID", "CODEX_ENTRYPOINT",
+        "CURSOR_SESSION_ID", "CURSOR_TRACE_ID",
+        "AIDER_SESSION_ID", "GEMINI_CLI_SESSION_ID",
+    ]
+
+    /// Dodatkowa blokada na wypadek, gdyby lista wyżej kiedyś urosła nieostrożnie.
+    private static func isSecretKey(_ key: String) -> Bool {
+        let k = key.uppercased()
+        return k.contains("TOKEN") || k.contains("SECRET") || k.contains("PASSWORD")
+            || k.contains("KEY") || k.contains("AUTH") || k.contains("CREDENTIAL")
+    }
+
     /// Pełna linia poleceń przez KERN_PROCARGS2.
     /// Droższe niż proc_pidinfo, więc wołane WYŁĄCZNIE raz, przy pierwszym zobaczeniu procesu.
     ///
     /// Układ bufora: [int32 argc][exec_path\0][\0 padding][argv0\0][argv1\0]...[envp]
-    static func commandLine(_ pid: Int32) -> String? {
+    /// Jeden `sysctl` daje i argumenty, i środowisko — więc czytamy oba naraz.
+    /// Wołane wyłącznie raz na proces, przy pierwszym zobaczeniu.
+    static func processInfo(_ pid: Int32) -> (command: String?, agent: AgentEnv?) {
         var mib: [Int32] = [CTL_KERN, KERN_PROCARGS2, pid]
         var size = 0
         guard sysctl(&mib, 3, nil, &size, nil, 0) == 0, size > MemoryLayout<Int32>.size else {
-            return nil
+            return (nil, nil)
         }
         var buffer = [CChar](repeating: 0, count: size)
-        guard sysctl(&mib, 3, &buffer, &size, nil, 0) == 0 else { return nil }
+        guard sysctl(&mib, 3, &buffer, &size, nil, 0) == 0 else { return (nil, nil) }
 
         var argc: Int32 = 0
         memcpy(&argc, buffer, MemoryLayout<Int32>.size)
-        guard argc > 0 else { return nil }
+        guard argc > 0 else { return (nil, nil) }
 
         var i = MemoryLayout<Int32>.size
         while i < size && buffer[i] != 0 { i += 1 }   // przeskocz exec_path
         while i < size && buffer[i] == 0 { i += 1 }   // przeskocz wyrównanie
 
-        var parts: [String] = []
+        var args: [String] = []
+        var env: [String: String] = [:]
         var current = [CChar]()
-        var found: Int32 = 0
-        while i < size && found < argc {
+        var seen: Int32 = 0
+
+        while i < size {
             if buffer[i] == 0 {
                 current.append(0)
-                parts.append(String(cString: current))
+                let piece = String(cString: current)
                 current.removeAll(keepingCapacity: true)
-                found += 1
+                if seen < argc {
+                    args.append(piece)
+                    seen += 1
+                } else if let eq = piece.firstIndex(of: "=") {
+                    let key = String(piece[piece.startIndex..<eq])
+                    // Wartość bierzemy TYLKO dla nazwanych kluczy. Reszta — w tym
+                    // tokeny leżące tuż obok — jest porzucana natychmiast.
+                    if allowedEnvKeys.contains(key), !isSecretKey(key) {
+                        env[key] = String(piece[piece.index(after: eq)...])
+                    }
+                }
             } else {
                 current.append(buffer[i])
             }
             i += 1
         }
-        let joined = parts.joined(separator: " ")
-        return joined.isEmpty ? nil : joined
+
+        let command = args.joined(separator: " ")
+        return (command.isEmpty ? nil : command, agentEnv(from: env))
     }
+
+    private static func agentEnv(from env: [String: String]) -> AgentEnv? {
+        if env["CLAUDECODE"] != nil || env["CLAUDE_CODE_SESSION_ID"] != nil {
+            return AgentEnv(vendor: "claude",
+                            sessionID: env["CLAUDE_CODE_SESSION_ID"],
+                            agentPID: env["CLAUDE_PID"].flatMap(Int32.init),
+                            entrypoint: env["CLAUDE_CODE_ENTRYPOINT"])
+        }
+        if env["CODEX_SESSION_ID"] != nil {
+            return AgentEnv(vendor: "codex", sessionID: env["CODEX_SESSION_ID"],
+                            agentPID: env["CODEX_PID"].flatMap(Int32.init),
+                            entrypoint: env["CODEX_ENTRYPOINT"])
+        }
+        if let id = env["CURSOR_SESSION_ID"] ?? env["CURSOR_TRACE_ID"] {
+            return AgentEnv(vendor: "cursor", sessionID: id, agentPID: nil, entrypoint: nil)
+        }
+        if let id = env["AIDER_SESSION_ID"] {
+            return AgentEnv(vendor: "aider", sessionID: id, agentPID: nil, entrypoint: nil)
+        }
+        if let id = env["GEMINI_CLI_SESSION_ID"] {
+            return AgentEnv(vendor: "gemini", sessionID: id, agentPID: nil, entrypoint: nil)
+        }
+        return nil
+    }
+
+    /// Zgodność wstecz dla miejsc, które potrzebują tylko linii poleceń.
+    static func commandLine(_ pid: Int32) -> String? { processInfo(pid).command }
 
     /// Czy proces nasłuchuje na porcie TCP i ile ma nawiązanych połączeń.
     ///

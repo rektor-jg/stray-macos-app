@@ -30,7 +30,8 @@ final class DetectorTests: XCTestCase {
         rssStartMB: Double = 50,
         rssEndMB: Double? = nil,
         descendants: [Int32] = [],
-        subtreeExtraMB: Double = 0
+        subtreeExtraMB: Double = 0,
+        agentEnv: ProcScanner.AgentEnv? = nil
     ) -> ProcWindow {
         let now = Date()
         let start = now.addingTimeInterval(-ageSeconds)
@@ -38,7 +39,8 @@ final class DetectorTests: XCTestCase {
             pid: 60858, uid: getuid(), name: name, command: command,
             startedAt: start, firstSeenAt: now.addingTimeInterval(-spanSeconds),
             originalPPID: ppid == 1 ? 60836 : ppid,
-            originalAncestry: ["zsh", "claude.exe"]
+            originalAncestry: ["zsh", "claude.exe"],
+            agentEnv: agentEnv
         )
         let step = spanSeconds / Double(max(1, sampleCount - 1))
         let cpuPerSampleNanos = UInt64(cpuPercent / 100 * step * 1_000_000_000)
@@ -176,7 +178,7 @@ final class DetectorTests: XCTestCase {
         let meta = ProcMeta(pid: 12672, uid: 501, name: "node",
                             command: "npm exec next dev -p 3111",
                             startedAt: Date(), firstSeenAt: Date(),
-                            originalPPID: 1, originalAncestry: [])
+                            originalPPID: 1, originalAncestry: [], agentEnv: nil)
         let attribution = Titles.attribution(for: meta)
         XCTAssertEqual(attribution, L("attribution.unknown"))
     }
@@ -226,7 +228,7 @@ final class DetectorTests: XCTestCase {
         let meta = ProcMeta(pid: 1, uid: 501, name: "node",
                             command: "npm exec expo start --port 8081 --lan",
                             startedAt: Date(), firstSeenAt: Date(),
-                            originalPPID: 2, originalAncestry: [])
+                            originalPPID: 2, originalAncestry: [], agentEnv: nil)
         XCTAssertEqual(Titles.short(for: meta), "expo start :8081")
     }
 }

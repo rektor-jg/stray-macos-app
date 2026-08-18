@@ -113,9 +113,13 @@ struct OrphanDetector: Detector {
         let inUse = sockets.established > 0
 
         var detail = [
-            w.orphanedBeforeWeStarted
-                ? L("orphan.parent.unknown")
-                : L("orphan.parent.dead", w.meta.originalPPID),
+            // Kolejność ma znaczenie: jeśli środowisko zdradza sesję, nie wolno pisać
+            // "pochodzenia nie da się ustalić" — wiersz niżej podajemy jej identyfikator.
+            w.meta.agentEnv != nil
+                ? L("orphan.parent.env")
+                : (w.orphanedBeforeWeStarted
+                    ? L("orphan.parent.unknown")
+                    : L("orphan.parent.dead", w.meta.originalPPID)),
             L("orphan.age", fmt(w.age), w.descendants.count + 1, w.subtreeRSSMB),
         ]
         if !sockets.listeningPorts.isEmpty {
@@ -211,6 +215,18 @@ enum Titles {
     }
 
     static func attribution(for meta: ProcMeta) -> String? {
+        // Środowisko: pomiar. Działa nawet dla sierot, bo dziedziczy się przez exec
+        // i przeżywa śmierć rodzica.
+        if let env = meta.agentEnv {
+            let who = meta.sessionLabel ?? env.vendor
+            if let pid = env.agentPID, ProcessActions.isAlive(pid) {
+                return L("attribution.env.live", who, pid)
+            }
+            if let pid = env.agentPID {
+                return L("attribution.env.dead", who, pid)
+            }
+            return L("attribution.env", who)
+        }
         if let agent = meta.agentSession {
             return L("attribution.agent", agent, meta.originalPPID)
         }

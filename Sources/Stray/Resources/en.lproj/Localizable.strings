@@ -144,3 +144,7 @@
 "disk.deleting" = "Deleting…";
 "cli.dryrun.title" = "WHAT A CLEANUP WOULD REMOVE (dry run — nothing is deleted)";
 "cli.dryrun.protected" = "Protected — not deletable";
+"attribution.env" = "left behind by %@ session (read from its environment)";
+"attribution.env.live" = "left behind by %@ — session PID %d still running";
+"attribution.env.dead" = "left behind by %@ — session PID %d is gone";
+"orphan.parent.env" = "orphaned — the parent is gone, but the session is readable from its environment";

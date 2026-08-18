@@ -144,3 +144,7 @@
 "disk.deleting" = "Usuwam…";
 "cli.dryrun.title" = "CO USUNĘŁOBY SPRZĄTANIE (próba na sucho — nic nie jest kasowane)";
 "cli.dryrun.protected" = "Chronione — nie do usunięcia";
+"attribution.env" = "zostawione przez sesję %@ (odczytane z jej środowiska)";
+"attribution.env.live" = "zostawione przez %@ — sesja PID %d nadal działa";
+"attribution.env.dead" = "zostawione przez %@ — sesja PID %d już nie żyje";
+"orphan.parent.env" = "osierocony — rodzic już nie żyje, ale sesję da się odczytać z jego środowiska";

@@ -20,11 +20,34 @@ struct ProcMeta: Sendable, Identifiable {
     /// Łańcuch przodków (nazwy) z chwili pierwszego zobaczenia, od rodzica w górę.
     let originalAncestry: [String]
 
+    /// Ślad odczytany ze środowiska procesu. Ma pierwszeństwo przed linią przodków,
+    /// bo jest pomiarem, a nie wnioskiem — i przeżywa osierocenie.
+    let agentEnv: ProcScanner.AgentEnv?
+
     var id: Int32 { pid }
 
-    /// Czy w łańcuchu przodków był agent AI.
+    /// Do której sesji agenta należy ten proces.
+    ///
+    /// Kolejność jest tu istotna: środowisko bije linię przodków, bo jest faktem
+    /// odczytanym z procesu, a nie wnioskiem z drzewa, które mogło się rozpaść.
     var agentSession: String? {
-        originalAncestry.first { AgentSignatures.isAgent($0) }
+        if let env = agentEnv { return env.vendor }
+        return originalAncestry.first { AgentSignatures.isAgent($0) }
+    }
+
+    /// Skąd wiemy o przynależności do sesji — wprost wpływa na to,
+    /// co wolno nam napisać użytkownikowi.
+    var agentConfidence: Confidence? {
+        if agentEnv != nil { return .measured }
+        return agentSession != nil ? .traced : nil
+    }
+
+    /// Czytelny opis sesji: identyfikator, jeśli jest, inaczej PID.
+    var sessionLabel: String? {
+        guard let env = agentEnv else { return agentSession }
+        if let id = env.sessionID { return "\(env.vendor) \(id.prefix(8))" }
+        if let pid = env.agentPID { return "\(env.vendor) (PID \(pid))" }
+        return env.vendor
     }
 }
 

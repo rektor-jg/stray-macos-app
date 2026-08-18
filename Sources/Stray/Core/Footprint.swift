@@ -81,7 +81,7 @@ final class FootprintLedger {
 
         for w in windows {
             let isAgent = AgentSignatures.isAgent(name: w.meta.name, command: w.meta.command)
-            let isDescendant = w.meta.agentSession != nil
+            let isDescendant = w.meta.agentEnv != nil || w.meta.agentSession != nil
 
             guard isAgent || isDescendant else {
                 // Sierota bez znanego rodzica — osobny worek, nigdy nie doliczana do AI.

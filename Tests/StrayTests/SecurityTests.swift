@@ -152,6 +152,20 @@ final class SecurityTests: XCTestCase {
             command: "/opt/homebrew/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe"))
     }
 
+    /// Czytanie cudzego środowiska oznacza przechodzenie obok żywych sekretów —
+    /// obok znaczników agenta leży CLAUDE_CODE_MESSAGING_TOKEN.
+    /// Parser ma prawo wziąć wyłącznie nazwane klucze.
+    func testEnvironmentReaderTakesOnlyNamedKeys() {
+        // Odczyt środowiska WŁASNEGO procesu testowego: ma tam być pełno zmiennych,
+        // ale żadna wartość sekretna nie może trafić do struktury wynikowej.
+        let info = ProcScanner.processInfo(getpid())
+        let mirror = String(describing: info.agent as Any)
+        for forbidden in ["TOKEN", "SECRET", "PASSWORD", "cc-socks"] {
+            XCTAssertFalse(mirror.contains(forbidden),
+                           "wartość sekretna wyciekła do AgentEnv: \(forbidden)")
+        }
+    }
+
     /// Aplikacja nie ma prawa wychodzić do sieci — czyta cudze linie poleceń,
     /// więc każde połączenie byłoby kanałem wycieku.
     func testNoNetworkSymbolsLinked() throws {

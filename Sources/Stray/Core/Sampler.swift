@@ -50,15 +50,18 @@ final class Sampler {
                 // Pierwsze zobaczenie: TERAZ jest jedyny moment, gdy rodzic jeszcze żyje
                 // i da się zapisać linię przodków.
                 let ancestry = buildAncestry(startingFrom: ppid)
+                // Jeden sysctl daje i argumenty, i znaczniki środowiskowe.
+                let info = ProcScanner.processInfo(pid)
                 metas[pid] = ProcMeta(
                     pid: pid,
                     uid: uid,
                     name: name,
-                    command: ProcScanner.commandLine(pid) ?? name,
+                    command: info.command ?? name,
                     startedAt: startedAt,
                     firstSeenAt: now,
                     originalPPID: ppid,
-                    originalAncestry: ancestry
+                    originalAncestry: ancestry,
+                    agentEnv: info.agent
                 )
                 history[pid] = RingBuffer(capacity: Self.historyDepth)
             }
