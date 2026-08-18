@@ -126,6 +126,32 @@ final class SecurityTests: XCTestCase {
         XCTAssertTrue(ProcessActions.startMatches(pid: me, expected: started))
     }
 
+    /// ZNALEZISKO: dopasowanie nazwy agenta szło po przedrostku, więc usługa systemowa
+    /// Apple `CursorUIViewService` (od kursora tekstowego, nie od edytora Cursor)
+    /// była liczona jako proces AI i zawyżała ślad.
+    func testAgentMatchingRejectsSystemServices() {
+        XCTAssertFalse(AgentSignatures.isAgent("CursorUIViewService"),
+                       "usługa systemowa Apple to nie agent AI")
+        XCTAssertFalse(AgentSignatures.isAgent(
+            name: "CursorUIViewService",
+            command: "/System/Library/PrivateFrameworks/TextInputUIMacHelper.framework/"
+                   + "Versions/A/XPCServices/CursorUIViewService.xpc/Contents/MacOS/CursorUIViewService"))
+        // cokolwiek spod /System/ jest odrzucane niezależnie od nazwy
+        XCTAssertFalse(AgentSignatures.isAgent(name: "claude",
+                                               command: "/System/Library/CoreServices/claude"))
+    }
+
+    func testAgentMatchingStillCatchesRealAgents() {
+        for name in ["claude", "claude.exe", "Claude", "codex", "cursor", "aider"] {
+            XCTAssertTrue(AgentSignatures.isAgent(name), "\(name) musi być rozpoznane")
+        }
+        XCTAssertTrue(AgentSignatures.isAgent("Claude Helper (Renderer)"),
+                      "procesy pomocnicze aplikacji desktopowej też się liczą")
+        XCTAssertTrue(AgentSignatures.isAgent(
+            name: "claude.exe",
+            command: "/opt/homebrew/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe"))
+    }
+
     /// Aplikacja nie ma prawa wychodzić do sieci — czyta cudze linie poleceń,
     /// więc każde połączenie byłoby kanałem wycieku.
     func testNoNetworkSymbolsLinked() throws {

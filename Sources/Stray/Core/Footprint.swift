@@ -80,7 +80,7 @@ final class FootprintLedger {
         var snapshot = LiveFootprint()
 
         for w in windows {
-            let isAgent = AgentSignatures.isAgent(w.meta.name)
+            let isAgent = AgentSignatures.isAgent(name: w.meta.name, command: w.meta.command)
             let isDescendant = w.meta.agentSession != nil
 
             guard isAgent || isDescendant else {
