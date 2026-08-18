@@ -404,11 +404,18 @@ przegląd. Powierzchnie sprawdzone empirycznie, nie z lektury.
 | niska | między skanem a kliknięciem „Ubij" proces mógł umrzeć, a jądro nadać ten sam PID czemuś innemu | strażnik porównuje czas startu procesu przed wysłaniem sygnału; jeden syscall |
 | niska | `~/.claude/file-history` wchodziło do „posprzątaj wszystko" | to dane użytkownika (kopie sprzed edycji, na nich stoi cofanie zmian), nie cache — zdjęte z listy bezpiecznych |
 
-### Postawa dystrybucyjna (do zrobienia przed v1.0)
+### Postawa dystrybucyjna
 
-Podpis jest **ad-hoc**, bez Developer ID, bez hardened runtime i bez notaryzacji.
-Wystarcza lokalnie, nie wystarcza do rozdawania. App Store i tak odpada — sandbox
-uniemożliwia wgląd w cudze procesy, co jest całą funkcją tej aplikacji.
+Podpis jest **ad-hoc** — wystarcza lokalnie, nie wystarcza do rozdawania.
+Droga do podpisanego wydania jest opisana krok po kroku w [`docs/DYSTRYBUCJA.md`](docs/DYSTRYBUCJA.md),
+a `scripts/release.sh` przechodzi ją automatycznie (build → hardened runtime → `.dmg`
+→ notaryzacja → stapling → weryfikacja) i sprawdza warunki wstępne, zanim cokolwiek zbuduje.
+
+Brakuje wyłącznie certyfikatu **Developer ID Application** — z tego samego, już opłaconego
+członkostwa co posiadany certyfikat deweloperski.
+
+App Store odpada z definicji: sandbox odcina odczyt `proc_pidinfo` na cudzych procesach,
+czyli całą funkcję aplikacji.
 
 ## Kasowanie z dysku — cztery bariery
 
