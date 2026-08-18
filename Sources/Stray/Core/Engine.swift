@@ -8,8 +8,14 @@ final class Engine: ObservableObject {
     @Published private(set) var selfCostMillis: Double = 0
     @Published private(set) var trackedCount: Int = 0
     @Published private(set) var lastTick: Date?
+    @Published private(set) var live = LiveFootprint()
+    @Published private(set) var today = DailyFootprint(day: FootprintLedger.dayKey())
+    @Published private(set) var weekCPUHours: Double = 0
+    @Published private(set) var diskReport: DiskReport?
+    @Published private(set) var diskStage: String?
 
     private let sampler = Sampler()
+    private let ledger = FootprintLedger()
     private let policy = Policy()
     private let detectors: [Detector] = [SpinnerDetector(), OrphanDetector(), LeakDetector()]
     private var config = DetectorConfig.default
@@ -23,8 +29,18 @@ final class Engine: ObservableObject {
         findings.reduce(0) { $0 + $1.reclaimBytes }
     }
 
+    /// Rekomendacje posortowane od najbardziej wartych działania.
+    var actionable: [(Finding, Advice)] {
+        findings
+            .map { ($0, Advisor.advise(finding: $0, isAgentItself: AgentSignatures.isAgent($0.title))) }
+            .filter { $0.1.actionable }
+            .sorted { $0.0.reclaimBytes > $1.0.reclaimBytes }
+    }
+
     func start() {
         tick()
+        // Skan dyskowy trwa ~20 s, więc raz na starcie w tle i dalej na żądanie.
+        scanDisk()
         timer = Timer.scheduledTimer(withTimeInterval: Sampler.interval, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.tick() }
         }
@@ -40,12 +56,19 @@ final class Engine: ObservableObject {
             let raw = windows.compactMap { w in
                 self.detectors.compactMap { $0.evaluate(w, config: cfg) }.first
             }
+            self.ledger.record(windows: windows)
             let cost = self.sampler.lastScanMillis
             let tracked = self.sampler.trackedCount
+            let live = self.ledger.live
+            let today = self.ledger.today
+            let week = self.ledger.weekCPUHours
             Task { @MainActor in
                 self.findings = self.policy.filter(raw)
                 self.selfCostMillis = cost
                 self.trackedCount = tracked
+                self.live = live
+                self.today = today
+                self.weekCPUHours = week
                 self.lastTick = Date()
                 self.notifyIfNeeded()
             }
@@ -62,13 +85,30 @@ final class Engine: ObservableObject {
 
     func kill(_ finding: Finding) {
         let pid = finding.pid
+        let reclaimed = finding.reclaimBytes
         queue.async { [weak self] in
             let killed = ProcessActions.terminateTree(pid: pid)
+            if killed > 0 { self?.ledger.recordKill(reclaimed: reclaimed) }
             Task { @MainActor in
                 if killed > 0 {
                     self?.policy.forget(pid: pid)
                     self?.findings.removeAll { $0.pid == pid }
                 }
+            }
+        }
+    }
+
+    func scanDisk() {
+        guard diskStage == nil else { return }
+        diskStage = "start"
+        let onStage: @Sendable (String) -> Void = { [weak self] stage in
+            Task { @MainActor in self?.diskStage = stage }
+        }
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let report = DiskScanner.scan(progress: onStage)
+            Task { @MainActor in
+                self?.diskReport = report
+                self?.diskStage = nil
             }
         }
     }

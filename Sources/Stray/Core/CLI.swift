@@ -5,6 +5,73 @@ import Foundation
 /// Istnieje po to, żeby dało się testować detektory na żywym systemie bez GUI —
 /// i żeby dowieść, że działają, zanim powstanie choćby jeden widok.
 enum CLI {
+
+    /// Tryb `--footprint`: te same liczby, które pokazuje ekran Przegląd.
+    static func footprint(seconds: Int = 12) {
+        let sampler = Sampler()
+        let ledger = FootprintLedger()
+        let ticks = max(2, seconds / Int(Sampler.interval))
+        for i in 0..<ticks {
+            ledger.record(windows: sampler.tick())
+            FileHandle.standardError.write("\rpróbka \(i + 1)/\(ticks)   ".data(using: .utf8)!)
+            if i < ticks - 1 { Thread.sleep(forTimeInterval: Sampler.interval) }
+        }
+        FileHandle.standardError.write("\r".data(using: .utf8)!)
+
+        let live = ledger.live
+        print("ŚLAD AI W SYSTEMIE\n")
+        print("── TERAZ")
+        print("   Procesy AI:      \(live.totalProcesses)  (\(live.agentProcesses) agentów + \(live.descendantProcesses) potomków)")
+        print(String(format: "   CPU:             %.0f%%", live.cpuPercent))
+        print("   Pamięć:          \(byteString(live.rssBytes))")
+        if live.unattributed > 0 {
+            print("   Nieprzypisane:   \(live.unattributed) procesów, \(byteString(live.unattributedRSSBytes))")
+            print("                    (osierocone przed startem — NIE doliczane do AI)")
+        }
+        print("")
+        print("── DZIŚ (\(ledger.today.day))")
+        print(String(format: "   Czas CPU:        %.2f h", ledger.today.cpuHours))
+        print("   Szczyt pamięci:  \(byteString(ledger.today.peakRSSBytes))")
+        print("   Odzyskane:       \(byteString(ledger.today.reclaimedBytes)) w \(ledger.today.killedProcesses) sprzątnięciach")
+        print(String(format: "\n── TYDZIEŃ\n   Czas CPU:        %.2f h", ledger.weekCPUHours))
+        // celowo bez save(): tryb CLI tylko podgląda, a zapis należy do działającej aplikacji
+    }
+
+
+    /// Tryb `--disk`: skan przestrzeni zajętej przez AI, z podziałem na poziomy pewności.
+    static func disk() {
+        let report = DiskScanner.scan { stage in
+            FileHandle.standardError.write("\r  skanuję: \(stage)…            ".data(using: .utf8)!)
+        }
+        FileHandle.standardError.write("\r".data(using: .utf8)!)
+
+        print("PRZESTRZEŃ ZAJĘTA PRZEZ AI\n")
+        for conf in [Confidence.measured, .traced, .inferred] {
+            let items = report.items.filter { $0.confidence == conf }
+            guard !items.isEmpty else { continue }
+            print("── \(conf.label.uppercased()) — \(byteString(report.total(conf)))")
+            print("   \(conf.explanation)")
+            for item in items.prefix(8) {
+                let mark = item.safeToDelete ? "×" : " "
+                print("   \(mark) \(pad(item.displayName, 34)) \(byteString(item.bytes))")
+                print("       \(item.note)")
+            }
+            print("")
+        }
+        print("── PODSUMOWANIE")
+        for (cat, bytes) in report.byCategory() {
+            print("   \(pad(cat.label, 20)) \(byteString(bytes))")
+        }
+        print("")
+        print("   Razem widziane:     \(byteString(report.grandTotal))")
+        print("   Bezpieczne do usunięcia (×): \(byteString(report.reclaimable))")
+        print(String(format: "   Skan trwał %.1f s", report.durationSeconds))
+    }
+
+    private static func pad(_ s: String, _ n: Int) -> String {
+        s.count >= n ? String(s.prefix(n)) : s + String(repeating: " ", count: n - s.count)
+    }
+
     static func scan(seconds: Int = 12) {
         let sampler = Sampler()
         let detectors: [Detector] = [SpinnerDetector(), OrphanDetector(), LeakDetector()]

@@ -369,8 +369,56 @@ i wykrywa realne sieroty na maszynie, na której powstała.
 ```bash
 ./scripts/bundle.sh release          # zbuduj Stray.app
 open build/Stray.app                 # uruchom (ikona w pasku, bez Docka)
-./build/Stray.app/Contents/MacOS/Stray --scan   # jednorazowy skan w terminalu
 swift test                           # 18 testów detektorów, offline
+
+# tryby CLI — te same dane, co poszczególne zakładki
+Stray --scan        # zakładka Procesy
+Stray --footprint   # zakładka Przegląd: ślad AI w systemie
+Stray --disk        # zakładka Dysk: przestrzeń zajęta przez AI
+```
+
+## Trzy zakładki
+
+**Przegląd** — ile AI zabiera z systemu: procesy i pamięć teraz, czas CPU dziś i w tygodniu,
+lista „warto wyłączyć", podsumowanie dysku z podziałem na pewność pomiaru.
+
+**Procesy** — znaleziska D1–D3, pokolorowane wg wielkości odzysku, z jednozdaniową radą
+przy każdym wpisie.
+
+**Dysk** — przestrzeń powiązana z AI, pogrupowana w kategorie, z gotową komendą czyszczącą
+przy pozycjach bezpiecznych do usunięcia.
+
+## Jak mierzymy ślad AI
+
+Najtrudniejsze pytanie w tym projekcie nie brzmi „co zżera zasoby", tylko **„skąd wiadomo,
+że to należy do AI".** Łatwo pokazać wielką liczbę i skłamać, doliczając do niej cały cache npm
+z ostatnich pięciu lat. Dlatego każda pozycja ma poziom pewności i **liczby z różnych poziomów
+nigdy nie są sumowane bez etykiety**:
+
+| Poziom | Co to znaczy | Przykład |
+|---|---|---|
+| 🟢 **zmierzone** | proces agenta, jego żywe poddrzewo albo jego własny katalog | `~/.claude`, scratchpady, `claude.exe` i potomkowie |
+| 🔵 **prześledzone** | zapisana linia przodków albo ścieżka katalogu roboczego agenta | `DerivedData` wskazujące na `/scratchpad/` lub `.claude/worktrees/` |
+| ⚪️ **wywnioskowane** | poszlaki w projekcie — szacunek, nie pomiar | cache npm, `node_modules` w repo z `CLAUDE.md` |
+
+Procesy, które osierociały **zanim Stray wystartował**, nie mają zapisanej linii przodków —
+trafiają do osobnego worka „nieprzypisane" i nigdy nie są doliczane do śladu AI.
+Zawyżona liczba byłaby gorsza niż jej brak.
+
+### Zmierzone na maszynie źródłowej
+
+```
+ŚLAD AI — TERAZ
+   Procesy AI:  18  (13 agentów + 5 potomków)
+   Pamięć:      4.1 GB
+   Nieprzypisane: 2 procesy, 1.5 GB  (NIE doliczane)
+
+DYSK
+   zmierzone      1.4 GB   ~/.claude 830 MB · scratchpady 459 MB · ~/.codex 72 MB
+   prześledzone   753 MB   2 × DerivedData po projektach agenta, których już nie ma
+   wywnioskowane  35.0 GB  cache npm 12 GB · node_modules 14.9 GB · ~/.cache 5.6 GB
+   ─────────────────────────────────────────────
+   bezpiecznie odzyskiwalne: 15.7 GB     (skan: 23 s)
 ```
 
 ### Co działa

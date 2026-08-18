@@ -10,12 +10,20 @@ struct StrayApp: App {
             CLI.scan()
             exit(0)
         }
+        if CommandLine.arguments.contains("--footprint") {
+            CLI.footprint()
+            exit(0)
+        }
+        if CommandLine.arguments.contains("--disk") {
+            CLI.disk()
+            exit(0)
+        }
         Notifier.requestAuthorization()
     }
 
     var body: some Scene {
         MenuBarExtra {
-            PopoverView(engine: engine)
+            RootView(engine: engine)
                 .onAppear { engine.start() }
         } label: {
             Image(systemName: iconName)
