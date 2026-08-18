@@ -64,7 +64,7 @@ enum DiskActions {
             "\(home)/.npm/",
             "\(home)/Library/pnpm/",
             "\(home)/.cache/",
-            "/private/tmp/claude-",
+            FileMeasure.scratchpadPrefix,
         ].map(normalize)
     }
 
@@ -92,7 +92,7 @@ enum DiskActions {
         // 4. martwy artefakt musi być nadal martwy — projekt mógł wrócić
         //    (odmontowany dysk, przywrócone repo, przełączony worktree)
         if item.category == .deadArtifact {
-            if let workspace = workspacePath(plist: "\(path)/info.plist"),
+            if let workspace = FileMeasure.workspacePath(plist: "\(path)/info.plist"),
                fm.fileExists(atPath: workspace) {
                 throw DiskActionError.projectCameBack(item.displayName)
             }
@@ -135,7 +135,7 @@ enum DiskActions {
 
     static func isScratchpadRoot(_ path: String) -> Bool {
         let normalized = normalize(path)
-        let prefix = normalize("/private/tmp/claude-")
+        let prefix = normalize(FileMeasure.scratchpadPrefix)
         guard normalized.hasPrefix(prefix) else { return false }
         return !normalized.dropFirst(prefix.count).contains("/")
     }
@@ -148,7 +148,7 @@ enum DiskActions {
         for child in (try? fm.contentsOfDirectory(atPath: root)) ?? [] {
             let path = "\(root)/\(child)"
             guard isStale(path) else { continue }   // aktywna sesja zostaje nietknięta
-            let size = directorySize(path)
+            let size = (FileMeasure.size(path) ?? 0)
             do {
                 try operation(URL(fileURLWithPath: path))
                 freed += size
@@ -170,31 +170,9 @@ enum DiskActions {
         return ((try? fm.contentsOfDirectory(atPath: item.path)) ?? [])
             .map { "\(item.path)/\($0)" }
             .filter { isStale($0) }
-            .reduce(UInt64(0)) { $0 + directorySize($1) }
+            .reduce(UInt64(0)) { $0 + (FileMeasure.size($1) ?? 0) }
     }
 
     // MARK: - pomocnicze
 
-    private static func directorySize(_ path: String) -> UInt64 {
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/du")
-        task.arguments = ["-sk", path]
-        let pipe = Pipe()
-        task.standardOutput = pipe
-        task.standardError = FileHandle.nullDevice
-        guard (try? task.run()) != nil else { return 0 }
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        task.waitUntilExit()
-        guard let text = String(data: data, encoding: .utf8),
-              let kb = UInt64(text.split(separator: "\t").first?
-                  .trimmingCharacters(in: .whitespaces) ?? "") else { return 0 }
-        return kb * 1024
-    }
-
-    private static func workspacePath(plist: String) -> String? {
-        guard let data = FileManager.default.contents(atPath: plist),
-              let obj = try? PropertyListSerialization.propertyList(from: data, format: nil),
-              let dict = obj as? [String: Any] else { return nil }
-        return dict["WorkspacePath"] as? String
-    }
 }

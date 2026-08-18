@@ -1,8 +1,22 @@
 import SwiftUI
 
+/// Startuje silnik w momencie uruchomienia procesu.
+///
+/// Bez tego `engine.start()` wisiało w `.onAppear` zawartości popovera — a przy
+/// `MenuBarExtra(.window)` ta zawartość powstaje dopiero przy pierwszym kliknięciu
+/// w ikonę. Aplikacja stała bezczynnie, dopóki ktoś jej nie otworzył: zero próbek,
+/// zero powiadomień i — najgorsze — żadnej pamięci linii przodków, czyli jedynej
+/// rzeczy, dla której to w ogóle musi być program rezydentny.
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        Engine.shared.start()
+    }
+}
+
 @main
 struct StrayApp: App {
-    @StateObject private var engine = Engine()
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
+    @StateObject private var engine = Engine.shared
 
     init() {
         // Tryb CLI: `Stray --scan` robi jeden przebieg i kończy, bez GUI.
@@ -22,13 +36,11 @@ struct StrayApp: App {
             CLI.disk()
             exit(0)
         }
-        Notifier.requestAuthorization()
     }
 
     var body: some Scene {
         MenuBarExtra {
             RootView(engine: engine)
-                .onAppear { engine.start() }
         } label: {
             Image(systemName: iconName)
         }

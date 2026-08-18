@@ -154,9 +154,9 @@ enum CLI {
         }
         let mb = Double(findings.reduce(0) { $0 + $1.reclaimBytes }) / 1_048_576
         print(String(format: "Razem: %d znalezisk, do odzyskania %.0f MB", findings.count, mb))
-        print(String(format: "Koszt własny: %.1f ms na próbkę (%.3f%% CPU przy oknie %.0f s)",
-                     sampler.lastScanMillis,
-                     sampler.lastScanMillis / (Sampler.interval * 1000) * 100,
-                     Sampler.interval))
+        // CPU zmierzone przez rusage na samym sobie; czas zegarowy podany osobno,
+        // bo to inna wielkość i mylenie ich było błędem poprzedniej wersji.
+        print(String(format: "Koszt własny: %.3f%% CPU (zmierzone), takt %.1f ms zegarowo, zimny start %.0f ms",
+                     sampler.selfCPUPercent, sampler.medianScanMillis, sampler.coldStartMillis))
     }
 }

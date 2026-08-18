@@ -23,7 +23,21 @@ struct DailyFootprint: Codable, Sendable {
     var reclaimedBytes: UInt64 = 0
     var reclaimedDiskBytes: UInt64 = 0
 
+    /// Ile sekund tego dnia Stray FAKTYCZNIE obserwował system.
+    ///
+    /// Bez tego pola interfejs pisał „narastająco od północy", co jest nieprawdą,
+    /// jeśli aplikacja wstała o osiemnastej. Narzędzie, które twierdzi, że AI zjadło
+    /// dziś 0,2 h CPU, przemilczając, że patrzyło przez dziesięć minut, wprowadza
+    /// w błąd dokładnie tak samo jak zawyżona liczba.
+    var observedSeconds: Double = 0
+
     var cpuHours: Double { cpuSeconds / 3600 }
+
+    /// Jaka część doby jest realnie objęta pomiarem.
+    var coverage: Double {
+        let elapsed = Date().timeIntervalSince(Calendar.current.startOfDay(for: Date()))
+        return elapsed > 0 ? min(1, observedSeconds / elapsed) : 0
+    }
 
     init(day: String) { self.day = day }
 
@@ -38,6 +52,7 @@ struct DailyFootprint: Codable, Sendable {
         killedProcesses = try c.decodeIfPresent(Int.self, forKey: .killedProcesses) ?? 0
         reclaimedBytes = try c.decodeIfPresent(UInt64.self, forKey: .reclaimedBytes) ?? 0
         reclaimedDiskBytes = try c.decodeIfPresent(UInt64.self, forKey: .reclaimedDiskBytes) ?? 0
+        observedSeconds = try c.decodeIfPresent(Double.self, forKey: .observedSeconds) ?? 0
     }
 }
 
@@ -110,6 +125,7 @@ final class FootprintLedger {
         let alive = Set(windows.map(\.meta.pid))
         lastCPU = lastCPU.filter { alive.contains($0.key) }
 
+        today.observedSeconds += Sampler.interval
         ticksSinceSave += 1
         if ticksSinceSave >= 20 { save(); ticksSinceSave = 0 }   // ~co minutę
 

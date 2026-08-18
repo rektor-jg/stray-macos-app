@@ -20,6 +20,8 @@ struct DetectorConfig: Sendable {
 
     // D2 — Orphan
     var orphanMinAge: TimeInterval = 30 * 60
+    /// Ile trzeba obserwować gniazda, zanim brak połączeń zaczniemy uznawać za dowód.
+    var socketWindowRequired: TimeInterval = 5 * 60
 
     // D3 — Leak
     var leakMinGrowthMB: Double = 200
@@ -99,16 +101,28 @@ struct OrphanDetector: Detector {
               !Whitelist.isGUIApp(w.meta.command)
         else { return nil }
 
-        // Gniazda należą do WNUKA (npm → node → next-server), nie do korzenia,
-        // więc pytamy o całe poddrzewo.
-        var ports: [Int] = []
-        var established = 0
-        for pid in [w.meta.pid] + w.descendants {
-            let s = c.socketProbe(pid)
-            ports.append(contentsOf: s.listeningPorts)
-            established += s.established
+        // Stan gniazd bierzemy z HISTORII, nie z jednego odczytu.
+        // Sampler zbiera go dla całego poddrzewa, bo port trzyma wnuk, nie korzeń.
+        let ports: [Int]
+        let established: Int
+        let observedLongEnough: Bool
+        if !w.socketHistory.isEmpty {
+            ports = w.listeningPorts
+            established = w.peakEstablished
+            observedLongEnough = w.socketWindowSpan >= c.socketWindowRequired
+        } else {
+            // Zapas na pierwszy takt, zanim historia się uzbiera.
+            var p: [Int] = []
+            var e = 0
+            for pid in [w.meta.pid] + w.descendants {
+                let s = c.socketProbe(pid)
+                p.append(contentsOf: s.listeningPorts)
+                e += s.established
+            }
+            ports = Array(Set(p)).sorted()
+            established = e
+            observedLongEnough = false
         }
-        ports = Array(Set(ports)).sorted()
         let sockets = (listeningPorts: ports, established: established)
         let inUse = sockets.established > 0
 
@@ -123,8 +137,11 @@ struct OrphanDetector: Detector {
             L("orphan.age", fmt(w.age), w.descendants.count + 1, w.subtreeRSSMB),
         ]
         if !sockets.listeningPorts.isEmpty {
-            let ports = sockets.listeningPorts.map(String.init).joined(separator: ", ")
-            detail.append(L("orphan.ports", ports, sockets.established))
+            let portList = sockets.listeningPorts.map(String.init).joined(separator: ", ")
+            detail.append(observedLongEnough
+                ? L("orphan.ports.window", portList, sockets.established,
+                    Int(w.socketWindowSpan / 60))
+                : L("orphan.ports", portList, sockets.established))
         }
 
         // "W użyciu" bije "sierota". Metro z podpiętym symulatorem jest żywe —

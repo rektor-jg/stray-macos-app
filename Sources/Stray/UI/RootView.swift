@@ -89,7 +89,7 @@ struct RootView: View {
                 .font(.caption2).foregroundStyle(.secondary)
             Spacer()
             // Narzędzie do łapania żarłoków musi publicznie pokazywać własny rachunek.
-            Text(L("app.selfcost", engine.selfCostMillis / (Sampler.interval * 1000) * 100))
+            Text(L("app.selfcost", engine.selfCostMillis))
                 .font(.caption2).foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 12).padding(.vertical, 6)

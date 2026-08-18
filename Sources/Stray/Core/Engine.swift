@@ -4,6 +4,10 @@ import SwiftUI
 /// Spina próbkowanie, detektory i politykę. Jedyny stan, który widzi UI.
 @MainActor
 final class Engine: ObservableObject {
+    /// Jedna instancja na aplikację — silnik startuje przy uruchomieniu procesu,
+    /// a nie przy pierwszym otwarciu okna.
+    static let shared = Engine()
+
     @Published private(set) var findings: [Finding] = []
     @Published private(set) var selfCostMillis: Double = 0
     @Published private(set) var trackedCount: Int = 0
@@ -59,7 +63,7 @@ final class Engine: ObservableObject {
                 self.detectors.compactMap { $0.evaluate(w, config: cfg) }.first
             }
             self.ledger.record(windows: windows)
-            let cost = self.sampler.lastScanMillis
+            let cost = self.sampler.selfCPUPercent
             let tracked = self.sampler.trackedCount
             let live = self.ledger.live
             let today = self.ledger.today

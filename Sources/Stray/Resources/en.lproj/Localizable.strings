@@ -67,7 +67,7 @@
 "overview.memory.sub" = "RSS";
 "overview.unattributed" = "%d unattributed processes (%@) — orphaned before Stray started, so not counted towards AI";
 "overview.today" = "Today";
-"overview.today.sub" = "since midnight";
+"overview.today.sub" = "observed %@ of today";
 "overview.cputime" = "CPU time";
 "overview.cputime.sub" = "%.1f h this week";
 "overview.peak" = "Peak memory";
@@ -148,3 +148,4 @@
 "attribution.env.live" = "left behind by %@ — session PID %d still running";
 "attribution.env.dead" = "left behind by %@ — session PID %d is gone";
 "orphan.parent.env" = "orphaned — the parent is gone, but the session is readable from its environment";
+"orphan.ports.window" = "listening on port %@, peak %d connections over %d min";

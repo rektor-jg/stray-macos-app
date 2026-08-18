@@ -4,7 +4,6 @@ import Foundation
 /// Jedno powiadomienie na znalezisko, nie jedno na próbkę.
 final class Policy {
     private var lastNotified: [String: Date] = [:]
-    private var firstSeen: [String: Date] = [:]
     private let cooldown: TimeInterval
 
     init(cooldown: TimeInterval = 30 * 60) { self.cooldown = cooldown }
@@ -19,7 +18,6 @@ final class Policy {
     /// Czy o tym znalezisku wolno powiadomić użytkownika systemowym powiadomieniem.
     func shouldNotify(_ finding: Finding, now: Date = Date()) -> Bool {
         guard finding.severity == .critical else { return false }
-        if firstSeen[finding.id] == nil { firstSeen[finding.id] = now }
         if let last = lastNotified[finding.id], now.timeIntervalSince(last) < cooldown {
             return false
         }
@@ -30,7 +28,6 @@ final class Policy {
     func forget(pid: Int32) {
         for key in lastNotified.keys where key.hasSuffix(":\(pid)") {
             lastNotified.removeValue(forKey: key)
-            firstSeen.removeValue(forKey: key)
         }
     }
 }

@@ -51,6 +51,13 @@ struct ProcMeta: Sendable, Identifiable {
     }
 }
 
+/// Stan gniazd w jednej chwili.
+struct SocketSample: Sendable {
+    let at: Date
+    let ports: [Int]
+    let established: Int
+}
+
 /// Szereg czasowy — same liczby, bez Stringów. Trzymany w buforze pierścieniowym,
 /// więc każdy bajt na próbkę mnoży się przez ~750 procesów × 120 próbek.
 struct ProcMetrics: Sendable {
@@ -78,6 +85,9 @@ struct ProcWindow: Sendable {
     /// ubicie samego korzenia osierociłoby dzieci jeszcze bardziej.
     let descendants: [Int32]
     let subtreeRSS: UInt64
+
+    /// Historia gniazd. Pusta dla procesów, które nie są kandydatami.
+    let socketHistory: [SocketSample]
 
     var latest: ProcMetrics? { samples.last }
     var oldest: ProcMetrics? { samples.first }
@@ -119,6 +129,24 @@ struct ProcWindow: Sendable {
     }
 
     var isOrphan: Bool { latest?.ppid == 1 }
+
+    var listeningPorts: [Int] { socketHistory.last?.ports ?? [] }
+
+    /// Ile połączeń było w szczycie obserwacji.
+    ///
+    /// Pojedynczy odczyt w chwili kliknięcia nie odróżnia serwera, z którego ktoś
+    /// korzysta, od takiego, w którym wisi zapomniany websocket. Maksimum z całego
+    /// okna odróżnia: przez dziesięć minut prawdziwej pracy połączenia się pojawiają.
+    var peakEstablished: Int { socketHistory.map(\.established).max() ?? 0 }
+
+    /// Czy przez CAŁE okno nie było ani jednego połączenia.
+    var neverConnected: Bool { !socketHistory.isEmpty && peakEstablished == 0 }
+
+    /// Jak długo trwa obserwacja gniazd tego procesu.
+    var socketWindowSpan: TimeInterval {
+        guard let a = socketHistory.first, let b = socketHistory.last else { return 0 }
+        return b.at.timeIntervalSince(a.at)
+    }
 
     var rssMB: Double { Double(latest?.rss ?? 0) / 1_048_576 }
 

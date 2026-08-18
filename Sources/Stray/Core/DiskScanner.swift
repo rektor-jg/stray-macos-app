@@ -57,7 +57,7 @@ enum DiskScanner {
 
     /// Ścieżki, których obecność zdradza, że katalog roboczy należał do agenta.
     private static let agentPathMarkers = [
-        "/scratchpad/", "/.claude/worktrees/", "/claude-501/", "/claude-",
+        "/scratchpad/", "/.claude/worktrees/", "/claude-",
         "/.codex/", "/.cursor/",
     ]
 
@@ -71,7 +71,7 @@ enum DiskScanner {
 
         // 1. Katalogi należące wprost do agentów — pomiar bezpośredni.
         progress?(L("disk.stage.agents"))
-        for (path, name, safe, note) in [
+        let agentDirs: [(String, String, Bool, String)] = [
             ("\(home)/.claude/projects", "~/.claude/projects", false,
              L("disk.note.transcripts")),
             // Kopie plików sprzed edycji to dane użytkownika, nie cache — na nich stoi
@@ -80,10 +80,12 @@ enum DiskScanner {
              L("disk.note.filehistory")),
             ("\(home)/.claude/image-cache", "~/.claude/image-cache", true, L("disk.note.imagecache")),
             ("\(home)/.codex", "~/.codex", false, L("disk.note.codex")),
-            ("/private/tmp/claude-501", L("disk.name.scratchpads"), true,
+            (FileMeasure.scratchpadRoot, L("disk.name.scratchpads"), true,
              L("disk.note.scratchpads")),
-        ] {
-            guard let bytes = size(of: path), bytes > 0 else { continue }
+        ]
+        let agentSizes = FileMeasure.sizes(agentDirs.map(\.0))
+        for (path, name, safe, note) in agentDirs {
+            guard let bytes = agentSizes[path], bytes > 0 else { continue }
             report.items.append(DiskItem(
                 path: path, displayName: name, bytes: bytes,
                 category: .agentData, confidenceRaw: Confidence.measured.rawValue,
@@ -98,12 +100,14 @@ enum DiskScanner {
         // 3. Cache pakietów — wywnioskowane. Nie da się rozdzielić, ile z tego
         //    wynikło z pracy agenta, a ile z własnych `npm install`.
         progress?(L("disk.stage.caches"))
-        for (path, name, cmd) in [
+        let caches: [(String, String, String?)] = [
             ("\(home)/.npm/_cacache", L("disk.name.npm"), "npm cache verify"),
             ("\(home)/Library/pnpm/store", L("disk.name.pnpm"), "pnpm store prune"),
             ("\(home)/.cache", "~/.cache", nil),
-        ] as [(String, String, String?)] {
-            guard let bytes = size(of: path), bytes > 0 else { continue }
+        ]
+        let cacheSizes = FileMeasure.sizes(caches.map(\.0))
+        for (path, name, cmd) in caches {
+            guard let bytes = cacheSizes[path], bytes > 0 else { continue }
             report.items.append(DiskItem(
                 path: path, displayName: name, bytes: bytes,
                 category: .packageCache, confidenceRaw: Confidence.inferred.rawValue,
@@ -129,14 +133,22 @@ enum DiskScanner {
         let fm = FileManager.default
         guard let entries = try? fm.contentsOfDirectory(atPath: root) else { return [] }
 
-        var items: [DiskItem] = []
-        for entry in entries {
+        // Wszystkie podkatalogi mierzone równolegle — `du` czeka na dysk, nie na CPU,
+        // więc to jest różnica rzędu wielkości, a nie kosmetyka.
+        let dirs = entries.compactMap { entry -> String? in
             let dir = "\(root)/\(entry)"
             var isDir: ObjCBool = false
-            guard fm.fileExists(atPath: dir, isDirectory: &isDir), isDir.boolValue,
-                  let bytes = size(of: dir), bytes > 1_048_576 else { continue }
+            guard fm.fileExists(atPath: dir, isDirectory: &isDir), isDir.boolValue else { return nil }
+            return dir
+        }
+        let sizes = FileMeasure.sizes(dirs)
 
-            let workspace = workspacePath(plist: "\(dir)/info.plist")
+        var items: [DiskItem] = []
+        for dir in dirs {
+            let entry = (dir as NSString).lastPathComponent
+            guard let bytes = sizes[dir], bytes > 1_048_576 else { continue }
+
+            let workspace = FileMeasure.workspacePath(plist: "\(dir)/info.plist")
             let projectGone = workspace.map { !fm.fileExists(atPath: $0) } ?? false
             let fromAgent = workspace.map { path in
                 agentPathMarkers.contains { path.contains($0) }
@@ -166,12 +178,6 @@ enum DiskScanner {
         return items
     }
 
-    private static func workspacePath(plist: String) -> String? {
-        guard let data = FileManager.default.contents(atPath: plist),
-              let obj = try? PropertyListSerialization.propertyList(from: data, format: nil),
-              let dict = obj as? [String: Any] else { return nil }
-        return dict["WorkspacePath"] as? String
-    }
 
     // MARK: - node_modules
 
@@ -181,16 +187,26 @@ enum DiskScanner {
         var seen = Set<String>()
         var items: [DiskItem] = []
 
+        // Najpierw sama lista kandydatów (tanie sprawdzenie istnienia),
+        // potem jeden równoległy pomiar na wszystkie naraz.
+        var candidates: [(nm: String, project: String, candidate: String)] = []
         for root in roots {
             guard let entries = try? fm.contentsOfDirectory(atPath: root) else { continue }
             for entry in entries {
                 let project = "\(root)/\(entry)"
                 for candidate in [project, "\(project)/apps/mobile", "\(project)/apps/web"] {
                     let nm = "\(candidate)/node_modules"
-                    guard !seen.contains(nm), fm.fileExists(atPath: nm),
-                          let bytes = size(of: nm), bytes > 50_000_000 else { continue }
+                    guard !seen.contains(nm), fm.fileExists(atPath: nm) else { continue }
                     seen.insert(nm)
+                    candidates.append((nm, project, candidate))
+                }
+            }
+        }
+        let moduleSizes = FileMeasure.sizes(candidates.map(\.nm))
 
+        for (nm, project, candidate) in candidates {
+            do {
+                    guard let bytes = moduleSizes[nm], bytes > 50_000_000 else { continue }
                     let hasAgentTraces = agentProjectMarkers.contains {
                         fm.fileExists(atPath: "\(project)/\($0)")
                     }
@@ -203,32 +219,12 @@ enum DiskScanner {
                             ? L("disk.note.nodemodules.agent")
                             : L("disk.note.nodemodules"),
                         suggestedCommand: nil))
-                }
             }
         }
         return items
     }
 
     // MARK: - pomiar
-
-    /// `du -sk`. Świadomie shell-out: na APFS nie ma taniego API na rozmiar katalogu,
-    /// a własna rekurencja po FileManagerze jest wolniejsza niż du.
-    private static func size(of path: String) -> UInt64? {
-        guard FileManager.default.fileExists(atPath: path) else { return nil }
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/du")
-        task.arguments = ["-sk", path]
-        let pipe = Pipe()
-        task.standardOutput = pipe
-        task.standardError = FileHandle.nullDevice
-        do { try task.run() } catch { return nil }
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        task.waitUntilExit()
-        guard let text = String(data: data, encoding: .utf8),
-              let kb = UInt64(text.split(separator: "\t").first?
-                  .trimmingCharacters(in: .whitespaces) ?? "") else { return nil }
-        return kb * 1024
-    }
 
     private static func shorten(_ path: String, _ home: String) -> String {
         let p = path.replacingOccurrences(of: home, with: "~")

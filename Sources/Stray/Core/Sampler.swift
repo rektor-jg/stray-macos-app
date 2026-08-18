@@ -1,19 +1,41 @@
 import Foundation
 
 /// Bufor pierścieniowy na szereg czasowy jednego procesu.
+///
+/// Nazwa zobowiązuje: pierwsza wersja robiła `removeFirst`, czyli przesuwała całą
+/// tablicę przy każdym dopisaniu. Przy 765 procesach × 120 próbek to ~92 tysiące
+/// przesunięć elementów na każdy takt — w narzędziu, które chwali się własnym
+/// zużyciem CPU. Teraz nadpisujemy w miejscu, w stałym czasie.
 struct RingBuffer<T> {
-    private var storage: [T] = []
-    private let capacity: Int
+    private var storage: [T?]
+    private var head = 0        // gdzie trafi następny element
+    private var filled = 0
 
-    init(capacity: Int) { self.capacity = capacity; storage.reserveCapacity(capacity) }
+    init(capacity: Int) { storage = Array(repeating: nil, count: max(1, capacity)) }
 
     mutating func append(_ value: T) {
-        storage.append(value)
-        if storage.count > capacity { storage.removeFirst(storage.count - capacity) }
+        storage[head] = value
+        head = (head + 1) % storage.count
+        if filled < storage.count { filled += 1 }
     }
 
-    var values: [T] { storage }
-    var count: Int { storage.count }
+    /// Zwraca próbki w kolejności chronologicznej.
+    var values: [T] {
+        guard filled > 0 else { return [] }
+        let start = filled == storage.count ? head : 0
+        return (0..<filled).compactMap { storage[(start + $0) % storage.count] }
+    }
+
+    var count: Int { filled }
+
+    /// Dwie ostatnie próbki bez kopiowania całej historii — dla filtra wstępnego,
+    /// który przebiega przez każdy proces w każdym takcie.
+    var lastTwo: (T?, T?) {
+        guard filled > 0 else { return (nil, nil) }
+        let last = (head - 1 + storage.count) % storage.count
+        let prev = (head - 2 + storage.count) % storage.count
+        return (filled > 1 ? storage[prev] : nil, storage[last])
+    }
 }
 
 /// Pętla próbkowania. Utrzymuje metadane, historię i — najważniejsze —
@@ -26,10 +48,48 @@ final class Sampler {
 
     private var metas: [Int32: ProcMeta] = [:]
     private var history: [Int32: RingBuffer<ProcMetrics>] = [:]
+    /// Historia stanu gniazd — tylko dla kandydatów, bo odczyt deskryptorów
+    /// jest znacznie droższy niż zwykła próbka i nie ma sensu robić go dla 765 procesów.
+    private var sockets: [Int32: RingBuffer<SocketSample>] = [:]
     private let ownUID = getuid()
 
     /// Koszt własny — narzędzie do łapania żarłoków musi publicznie pokazywać swój rachunek.
+    ///
+    /// Mediana, nie ostatni odczyt. Pojedyncze takty skaczą (pierwszy kosztuje ~29 ms,
+    /// bo czyta linię poleceń i środowisko wszystkich 780 procesów; każdy nowy proces
+    /// dokłada jeden `sysctl`), więc raportowanie ostatniej próbki dawało odczyty
+    /// od 3,9 do 13,2 ms dla tego samego stanu ustalonego.
     private(set) var lastScanMillis: Double = 0
+    private var recentCosts = RingBuffer<Double>(capacity: 20)
+
+    /// Rzeczywisty koszt procesora, mierzony tak samo jak dla każdego innego procesu:
+    /// przez `proc_pid_rusage` na samym sobie.
+    ///
+    /// Poprzednia wersja mierzyła stoperem czas ZEGAROWY skanu i podawała go jako
+    /// zużycie CPU. To dwie różne rzeczy: takt trwa 7–10 ms zegarowo, ale procesora
+    /// zużywa 1 ms — reszta to czekanie na syscalle i wywłaszczenia. Aplikacja
+    /// zawyżała własny rachunek dziesięciokrotnie i sprowokowała pogoń
+    /// za nieistniejącą regresją wydajności.
+    private var lastSelfCPU: UInt64 = 0
+    private var lastSelfCPUAt: Date?
+    private var selfCPUSamples = RingBuffer<Double>(capacity: 20)
+
+    /// Udział jednego rdzenia, w procentach — liczba, którą wolno pokazać użytkownikowi.
+    var selfCPUPercent: Double {
+        let values = selfCPUSamples.values.sorted()
+        guard !values.isEmpty else { return 0 }
+        return values[values.count / 2]
+    }
+    /// Koszt pierwszego taktu — jednorazowy, więc trzymany osobno i nigdy
+    /// niewliczany do mediany. Wrzucony do wspólnego worka zawyżał ją dwukrotnie.
+    private(set) var coldStartMillis: Double = 0
+
+    /// Mediana kosztu ostatnich taktów — liczba, którą wolno pokazać użytkownikowi.
+    var medianScanMillis: Double {
+        let sorted = recentCosts.values.sorted()
+        guard !sorted.isEmpty else { return 0 }
+        return sorted[sorted.count / 2]
+    }
     private(set) var trackedCount: Int = 0
 
     /// Jedna próbka całego systemu. Zwraca okna gotowe dla detektorów.
@@ -75,7 +135,40 @@ final class Sampler {
         }
 
         lastScanMillis = Date().timeIntervalSince(started) * 1000
+        measureSelf(at: Date())
+        if coldStartMillis == 0 {
+            // Pierwszy takt czyta linię poleceń i środowisko KAŻDEGO procesu — ~30 ms.
+            // Późniejsze robią to tylko dla nowych, więc mieszanie ich to błąd pomiaru.
+            coldStartMillis = lastScanMillis
+        } else {
+            recentCosts.append(lastScanMillis)
+        }
         trackedCount = metas.count
+
+        // Gniazda: wyłącznie osierocone narzędzia deweloperskie. Na maszynie źródłowej
+        // to dwa procesy z 765, więc koszt jest pomijalny, a zysk duży —
+        // JEDEN odczyt w chwili kliknięcia nie odróżnia serwera używanego
+        // od takiego, w którym wisi zapomniany websocket.
+        // Mapa dzieci budowana RAZ. Poprzednia wersja wołała childMap() wewnątrz pętli,
+        // czyli przebudowywała ją dla każdego kandydata osobno — koszt własny skoczył
+        // z 4,0 do 7,1 ms na próbkę.
+        let kids = childMap()
+        for (pid, meta) in metas {
+            let isOrphanDevTool = history[pid]?.values.last?.ppid == 1
+                && Whitelist.isDevTool(meta.command)
+                && !Whitelist.isGUIApp(meta.command)
+            guard isOrphanDevTool else { sockets.removeValue(forKey: pid); continue }
+            var sub = ProcScanner.socketState(pid)
+            for child in descendants(of: pid, children: kids) {
+                let s = ProcScanner.socketState(child)
+                sub.listeningPorts.append(contentsOf: s.listeningPorts)
+                sub.established += s.established
+            }
+            if sockets[pid] == nil { sockets[pid] = RingBuffer(capacity: Self.historyDepth) }
+            sockets[pid]?.append(SocketSample(at: now,
+                                              ports: Array(Set(sub.listeningPorts)).sorted(),
+                                              established: sub.established))
+        }
 
         // Mapa dzieci z bieżącej próbki — potrzebna, bo metryki poddrzewa
         // trzeba liczyć na aktualnym kształcie drzewa, nie na zapamiętanym.
@@ -88,12 +181,73 @@ final class Sampler {
         }
 
         return metas.compactMap { pid, meta in
-            guard let samples = history[pid]?.values, !samples.isEmpty else { return nil }
+            guard let ring = history[pid], ring.count > 0 else { return nil }
+            // Pełne okno budujemy TYLKO dla kandydatów.
+            //
+            // Wcześniej powstawało dla wszystkich 789 procesów co takt: kopia do 120 próbek
+            // plus przejście poddrzewa, czyli ~95 tysięcy kopii struktur na takt —
+            // w przytłaczającej większości dla bezczynnych demonów systemowych,
+            // które nie mają szansy wywołać żadnego detektora.
+            guard isCandidate(meta: meta, ring: ring) else { return nil }
+            let samples = ring.values
             let kids = descendants(of: pid, children: children)
             let subtreeRSS = ([pid] + kids).reduce(UInt64(0)) { $0 + (rssByPID[$1] ?? 0) }
             return ProcWindow(meta: meta, samples: samples,
-                              descendants: kids, subtreeRSS: subtreeRSS)
+                              descendants: kids, subtreeRSS: subtreeRSS,
+                              socketHistory: sockets[pid]?.values ?? [])
         }
+    }
+
+    /// Tani filtr wstępny, liczony z DWÓCH ostatnich próbek — bez kopiowania historii.
+    ///
+    /// Musi przepuścić wszystko, co może zainteresować którykolwiek detektor albo księgę.
+    /// Kryteria są celowo hojne: pomyłka w tę stronę kosztuje kilka mikrosekund,
+    /// pomyłka w drugą oznacza przeoczone znalezisko.
+    private func isCandidate(meta: ProcMeta, ring: RingBuffer<ProcMetrics>) -> Bool {
+        // wszystko, co należy do AI — potrzebne księdze śladu
+        if meta.agentEnv != nil { return true }
+        if AgentSignatures.isAgent(name: meta.name, command: meta.command) { return true }
+        if meta.agentSession != nil { return true }
+
+        let samples = ring.lastTwo
+        guard let latest = samples.1 else { return false }
+
+        // sierota będąca narzędziem deweloperskim — D2
+        if latest.ppid == 1 && Whitelist.isDevTool(meta.command)
+            && !Whitelist.isGUIApp(meta.command) { return true }
+
+        // cokolwiek dużego w pamięci — D3 łapie wycieki liczone w setkach MB
+        if latest.rss > 100 * 1_048_576 { return true }
+
+        // cokolwiek, co realnie pali procesor — D1
+        if let previous = samples.0 {
+            let elapsed = latest.at.timeIntervalSince(previous.at)
+            if elapsed > 0, latest.cpuNanos >= previous.cpuNanos {
+                let percent = Double(latest.cpuNanos - previous.cpuNanos) / (elapsed * 1e9) * 100
+                if percent > 15 { return true }
+            }
+        }
+        return false
+    }
+
+    /// Ten sam pomiar, którym mierzymy cudze procesy — zastosowany do siebie.
+    private func measureSelf(at now: Date) {
+        guard let (metrics, _, _, _, _) = ProcScanner.sample(getpid(), at: now) else { return }
+        defer { lastSelfCPU = metrics.cpuNanos; lastSelfCPUAt = now }
+        guard let before = lastSelfCPUAt, lastSelfCPU > 0 else { return }
+        let elapsed = now.timeIntervalSince(before)
+        guard elapsed > 0, metrics.cpuNanos >= lastSelfCPU else { return }
+        let cpuSeconds = Double(metrics.cpuNanos - lastSelfCPU) / 1_000_000_000
+        selfCPUSamples.append(cpuSeconds / elapsed * 100)
+    }
+
+    private func childMap() -> [Int32: [Int32]] {
+        var children: [Int32: [Int32]] = [:]
+        for (pid, ring) in history {
+            guard let last = ring.values.last else { continue }
+            children[last.ppid, default: []].append(pid)
+        }
+        return children
     }
 
     /// Wszyscy potomkowie, wszerz. Limit głębokości chroni przed cyklem

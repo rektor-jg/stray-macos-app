@@ -67,7 +67,7 @@
 "overview.memory.sub" = "RSS";
 "overview.unattributed" = "%d procesów nieprzypisanych (%@) — osierocone przed startem Stray, więc nie doliczam ich do AI";
 "overview.today" = "Dziś";
-"overview.today.sub" = "narastająco od północy";
+"overview.today.sub" = "obserwowane %@ dzisiejszej doby";
 "overview.cputime" = "Czas CPU";
 "overview.cputime.sub" = "%.1f h w tygodniu";
 "overview.peak" = "Szczyt pamięci";
@@ -148,3 +148,4 @@
 "attribution.env.live" = "zostawione przez %@ — sesja PID %d nadal działa";
 "attribution.env.dead" = "zostawione przez %@ — sesja PID %d już nie żyje";
 "orphan.parent.env" = "osierocony — rodzic już nie żyje, ale sesję da się odczytać z jego środowiska";
+"orphan.ports.window" = "nasłuchuje na porcie %@, w szczycie %d połączeń przez %d min";

@@ -140,8 +140,20 @@ enum ProcScanner {
         var current = [CChar]()
         var seen: Int32 = 0
 
+        // Pierwsze bajty nazw wszystkich interesujących zmiennych: C (CLAUDE/CODEX/CURSOR),
+        // A (AIDER), G (GEMINI). Sprawdzenie jednego bajtu odsiewa ~95% środowiska,
+        // ZANIM powstanie jakikolwiek String — a to właśnie alokacje kosztowały,
+        // nie sam odczyt: mediana taktu skoczyła przez nie z ~4 do ~9 ms.
+        let interestingFirstBytes: Set<CChar> = [67, 65, 71]   // 'C', 'A', 'G'
+
         while i < size {
             if buffer[i] == 0 {
+                let isEnv = seen >= argc
+                if isEnv, let first = current.first, !interestingFirstBytes.contains(first) {
+                    current.removeAll(keepingCapacity: true)
+                    i += 1
+                    continue
+                }
                 current.append(0)
                 let piece = String(cString: current)
                 current.removeAll(keepingCapacity: true)

@@ -580,11 +580,10 @@ Stray wystartował*. Od następnego takiego procesu atrybucja będzie pełna, bo
 
 ## Znane odstępstwa i otwarte kwestie
 
-- **Pamięć ponad budżet.** Założenie brzmiało < 30 MB, pomiar daje **~93 MB RSS**.
-  Historia (763 procesy × 120 próbek) to tylko ~6 MB — reszta to baseline SwiftUI/AppKit.
-  Cel 30 MB był nierealny dla SwiftUI; realny to ~60 MB i wymaga skrócenia historii dla procesów,
-  które nigdy nie zbliżyły się do żadnego progu. **CPU natomiast trzyma się z zapasem: 0,13%
-  przy budżecie 0,3%.**
+- **Pamięć: 71 MB wobec zakładanych 30 MB — i cel był błędny, nie kod.**
+  Ten sam rdzeń w trybie CLI zużywa **21 MB**, a historia próbek waży **5 MB**. Pozostałe
+  50 MB to baseline SwiftUI/AppKit, którego nie da się zoptymalizować własnym kodem.
+  Realistyczny cel to ~70 MB.
 - **Czy jedno połączenie znaczy „w użyciu"?** `next dev` po 5 godzinach miał 1 otwarte połączenie —
   równie dobrze zapomniana karta przeglądarki albo wiszący websocket HMR, jak realna praca.
   Obecna reguła („w użyciu bije sierota") jest celowo zachowawcza i **nie zgłasza takiego procesu**.

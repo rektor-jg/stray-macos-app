@@ -54,7 +54,7 @@ struct OverviewView: View {
 
     private var todaySection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            sectionTitle(L("overview.today"), L("overview.today.sub"))
+            sectionTitle(L("overview.today"), L("overview.today.sub", observedLabel))
             HStack(spacing: 8) {
                 StatTile(title: L("overview.cputime"),
                          value: String(format: "%.1f h", engine.today.cpuHours),
@@ -68,6 +68,13 @@ struct OverviewView: View {
                          tint: engine.today.reclaimedBytes > 0 ? .green : .primary)
             }
         }
+    }
+
+    /// Uczciwa etykieta zamiast „od północy": ile z dzisiejszej doby Stray realnie widział.
+    private var observedLabel: String {
+        let seconds = Int(engine.today.observedSeconds)
+        let time = seconds < 3600 ? "\(seconds / 60) min" : "\(seconds / 3600) h \((seconds % 3600) / 60) min"
+        return "\(time) · \(Int(engine.today.coverage * 100))%"
     }
 
     // MARK: - co warto wyłączyć
