@@ -32,6 +32,7 @@ struct Finding: Sendable, Identifiable {
     let attribution: String? // która sesja to zostawiła
     let reclaimBytes: UInt64 // ile pamięci wróci po ubiciu
     let command: String
+    let startedAt: Date
 
     /// Klucz do deduplikacji i cooldownu. Musi przeżyć kolejne próbki tego samego problemu.
     var id: String { "\(detector.rawValue):\(pid)" }

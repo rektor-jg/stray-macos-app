@@ -74,7 +74,9 @@ enum DiskScanner {
         for (path, name, safe, note) in [
             ("\(home)/.claude/projects", "~/.claude/projects", false,
              L("disk.note.transcripts")),
-            ("\(home)/.claude/file-history", "~/.claude/file-history", true,
+            // Kopie plików sprzed edycji to dane użytkownika, nie cache — na nich stoi
+            // możliwość cofnięcia zmian, więc nie wchodzą do "posprzątaj wszystko".
+            ("\(home)/.claude/file-history", "~/.claude/file-history", false,
              L("disk.note.filehistory")),
             ("\(home)/.claude/image-cache", "~/.claude/image-cache", true, L("disk.note.imagecache")),
             ("\(home)/.codex", "~/.codex", false, L("disk.note.codex")),

@@ -9,7 +9,12 @@ enum ProcessActions {
     /// z jego 531 MB — i osierociłoby go jeszcze bardziej niż był.
     /// Drzewo liczymy na świeżo, bo od ostatniej próbki mogło się zmienić.
     @discardableResult
-    static func terminateTree(pid: Int32, graceSeconds: TimeInterval = 5.0) -> Int {
+    static func terminateTree(pid: Int32, expectedStart: Date? = nil,
+                              graceSeconds: TimeInterval = 5.0) -> Int {
+        // Strażnik recyklingu PID-u: między skanem a kliknięciem proces mógł umrzeć,
+        // a jądro mogło nadać ten sam numer czemuś zupełnie innemu.
+        // Czas startu jest niepodrabialny w praktyce i kosztuje jeden syscall.
+        if let expectedStart, !startMatches(pid: pid, expected: expectedStart) { return 0 }
         let targets = subtree(of: pid)
         var killed = 0
         // od liści do korzenia — inaczej rodzic zdąży osierocić dzieci
@@ -17,6 +22,12 @@ enum ProcessActions {
             killed += 1
         }
         return killed
+    }
+
+    /// Czy proces o tym PID-zie to nadal ten sam proces, który widzieliśmy przy skanie.
+    static func startMatches(pid: Int32, expected: Date, tolerance: TimeInterval = 1.5) -> Bool {
+        guard let (_, _, _, _, started) = ProcScanner.sample(pid, at: Date()) else { return false }
+        return abs(started.timeIntervalSince(expected)) < tolerance
     }
 
     /// Korzeń + wszyscy potomkowie, w kolejności od korzenia w dół.
@@ -115,17 +126,26 @@ enum SecretMasker {
     /// Wzorce celowo LINIOWE — bez zagnieżdżonych kwantyfikatorów.
     /// Byłoby żenujące, gdyby narzędzie do wykrywania catastrophic backtrackingu
     /// samo się na nim zawiesiło.
-    private static let prefixes = ["sk-", "sk_live_", "sk_test_", "ghp_", "gho_", "ghu_",
-                                   "ghs_", "ghr_", "AKIA", "xoxb-", "xoxp-", "AIza"]
+    /// Prefiksy tokenów o rozpoznawalnym kształcie.
+    private static let prefixes = [
+        "sk-", "sk_live_", "sk_test_", "ghp_", "gho_", "ghu_", "ghs_", "ghr_",
+        "github_pat_", "glpat-", "AKIA", "ASIA", "xoxb-", "xoxp-", "xoxa-", "xapp-",
+        "AIza", "ya29.", "npm_", "hf_", "dop_v1_", "shpat_", "SG.", "rk_live_",
+    ]
+
+    /// Nazwy parametrów, po których idzie sekret bez własnego prefiksu.
+    /// Obie formy — z `=` i ze spacją — bo obie są w codziennym użyciu.
+    private static let keywords = [
+        "Bearer ", "--token=", "--token ", "--api-key=", "--api-key ", "--apikey=",
+        "--secret=", "--secret ", "--password=", "--password ", "--auth=",
+        "--hf-token ", "--access-token=", "--access-token ",
+        "TOKEN=", "SECRET=", "API_KEY=", "APIKEY=", "PASSWORD=", "ACCESS_TOKEN=",
+    ]
 
     static func mask(_ text: String) -> String {
         var out = text
-        for prefix in prefixes {
-            out = maskAfter(prefix, in: out)
-        }
-        out = maskAfterKeyword("Bearer ", in: out)
-        out = maskAfterKeyword("--token=", in: out)
-        out = maskAfterKeyword("--password=", in: out)
+        for prefix in prefixes { out = maskAfter(prefix, in: out) }
+        for keyword in keywords { out = maskAfter(keyword, in: out) }
         return out
     }
 
@@ -143,10 +163,6 @@ enum SecretMasker {
             rest = rest[idx...]
         }
         return result + rest
-    }
-
-    private static func maskAfterKeyword(_ keyword: String, in text: String) -> String {
-        maskAfter(keyword, in: text)
     }
 
     private static func isTokenChar(_ c: Character) -> Bool {

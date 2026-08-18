@@ -88,8 +88,9 @@ final class Engine: ObservableObject {
     func kill(_ finding: Finding) {
         let pid = finding.pid
         let reclaimed = finding.reclaimBytes
+        let started = finding.startedAt
         queue.async { [weak self] in
-            let killed = ProcessActions.terminateTree(pid: pid)
+            let killed = ProcessActions.terminateTree(pid: pid, expectedStart: started)
             if killed > 0 { self?.ledger.recordKill(reclaimed: reclaimed) }
             Task { @MainActor in
                 if killed > 0 {

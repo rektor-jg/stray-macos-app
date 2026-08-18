@@ -378,6 +378,38 @@ Stray --disk        # zakładka Dysk: przestrzeń zajęta przez AI
 Stray --clean       # próba na sucho: co usunęłoby sprzątanie (nic nie kasuje)
 ```
 
+## Przegląd bezpieczeństwa — 18.08.2026
+
+Aplikacja czyta cudze linie poleceń, ubija procesy i kasuje katalogi, więc przeszła osobny
+przegląd. Powierzchnie sprawdzone empirycznie, nie z lektury.
+
+### Czyste
+
+- **Zero sieci.** Brak `URLSession`, gniazd i telemetrii; `nm -u` na zbudowanej binarce
+  daje zero symboli sieciowych. Jest na to test.
+- **Brak wstrzyknięcia poleceń.** Wszystkie trzy podprocesy (`du`, `sample`) idą przez
+  `executableURL` ze ścieżką bezwzględną i tablicą argumentów — nigdzie nie ma powłoki.
+- **Piaskownica kasowania odporna na przejścia w górę drzewa.** `standardizingPath` rozwija
+  `..` również dla ścieżek nieistniejących, więc `~/.claude/../../../etc/passwd` normalizuje się
+  do `/etc/passwd` i wypada z dozwolonych korzeni. Sprawdzone siedmioma wrogimi ścieżkami.
+- **Księga na dysku trzyma same liczby** — żadnych linii poleceń ani ścieżek.
+
+### Naprawione
+
+| Waga | Znalezisko | Naprawa |
+|---|---|---|
+| **wysoka** | „Ignoruj ten proces" zapisywał cztery pierwsze tokeny komendy do UserDefaults **bez maskowania** — czyli sekret lądował w pliku plist, który przeżywa aplikację i którego użytkownik nigdy nie ogląda | maskowanie **przed** zapisem; efekt uboczny jest pożądany: ignorowanie przeżywa rotację klucza, bo token sprowadza się do stałej |
+| średnia | interfejs pokazywał **surową** komendę, w polu zaznaczalnym — raport maskował, ekran nie | maskowanie także w widoku; zrzut ekranu i udostępniony pulpit to ten sam kanał wycieku |
+| średnia | maskarka znała 12 kształtów tokenów | 24 prefiksy (`npm_`, `glpat-`, `hf_`, `github_pat_`, `ya29.`, `SG.`…) i 20 nazw parametrów, w obu formach: z `=` i ze spacją |
+| niska | między skanem a kliknięciem „Ubij" proces mógł umrzeć, a jądro nadać ten sam PID czemuś innemu | strażnik porównuje czas startu procesu przed wysłaniem sygnału; jeden syscall |
+| niska | `~/.claude/file-history` wchodziło do „posprzątaj wszystko" | to dane użytkownika (kopie sprzed edycji, na nich stoi cofanie zmian), nie cache — zdjęte z listy bezpiecznych |
+
+### Postawa dystrybucyjna (do zrobienia przed v1.0)
+
+Podpis jest **ad-hoc**, bez Developer ID, bez hardened runtime i bez notaryzacji.
+Wystarcza lokalnie, nie wystarcza do rozdawania. App Store i tak odpada — sandbox
+uniemożliwia wgląd w cudze procesy, co jest całą funkcją tej aplikacji.
+
 ## Kasowanie z dysku — cztery bariery
 
 To najniebezpieczniejsza funkcja w aplikacji: `kill` cofa się restartem procesu,

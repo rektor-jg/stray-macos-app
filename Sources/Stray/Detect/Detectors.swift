@@ -75,7 +75,8 @@ struct SpinnerDetector: Detector {
             detail: detail,
             attribution: Titles.attribution(for: w.meta),
             reclaimBytes: w.subtreeRSS,
-            command: w.meta.command
+            command: w.meta.command,
+            startedAt: w.meta.startedAt
         )
     }
 }
@@ -135,7 +136,8 @@ struct OrphanDetector: Detector {
             detail: detail,
             attribution: Titles.attribution(for: w.meta),
             reclaimBytes: inUse ? 0 : w.subtreeRSS,
-            command: w.meta.command
+            command: w.meta.command,
+            startedAt: w.meta.startedAt
         )
     }
 }
@@ -163,7 +165,8 @@ struct LeakDetector: Detector {
             ],
             attribution: Titles.attribution(for: w.meta),
             reclaimBytes: 0,
-            command: w.meta.command
+            command: w.meta.command,
+            startedAt: w.meta.startedAt
         )
     }
 }

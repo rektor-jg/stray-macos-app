@@ -69,7 +69,9 @@ struct FindingRow: View {
                     ForEach(finding.detail, id: \.self) { line in
                         Text("· " + line).font(.caption2).foregroundStyle(.secondary)
                     }
-                    Text(finding.command)
+                    // Maskowane także na ekranie, nie tylko w raporcie: pole jest
+                    // zaznaczalne i trafia na każdy zrzut ekranu oraz udostępniony pulpit.
+                    Text(SecretMasker.mask(finding.command))
                         .font(.system(.caption2, design: .monospaced))
                         .foregroundStyle(.tertiary).lineLimit(3).textSelection(.enabled)
                 }
