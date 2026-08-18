@@ -35,6 +35,33 @@ final class Engine: ObservableObject {
         findings.reduce(0) { $0 + $1.reclaimBytes }
     }
 
+    /// Znaleziska pogrupowane po sesji, która je zostawiła.
+    ///
+    /// „2 sieroty, 818 MB" mówi, co posprzątać. „Sesja ttys000 zostawiła 2 serwery,
+    /// 818 MB — nadal działa" mówi, kto śmieci. Ubicie sieroty nie powstrzyma sesji
+    /// przed zostawieniem następnej, więc użytkownik musi widzieć źródło.
+    struct SourceGroup: Identifiable {
+        let source: SessionSource?      // nil = pochodzenie nieznane
+        let findings: [Finding]
+        var id: String { source?.id ?? "unknown" }
+        var reclaimBytes: UInt64 { findings.reduce(0) { $0 + $1.reclaimBytes } }
+    }
+
+    var groupedBySource: [SourceGroup] {
+        var buckets: [String: (SessionSource?, [Finding])] = [:]
+        for f in findings {
+            let key = f.source?.id ?? "unknown"
+            buckets[key, default: (f.source, [])].1.append(f)
+        }
+        return buckets.values
+            .map { SourceGroup(source: $0.0, findings: $0.1) }
+            .sorted { a, b in
+                // znane źródła przed nieznanymi, potem po wielkości
+                if (a.source == nil) != (b.source == nil) { return a.source != nil }
+                return a.reclaimBytes > b.reclaimBytes
+            }
+    }
+
     /// Rekomendacje posortowane od najbardziej wartych działania.
     var actionable: [(Finding, Advice)] {
         findings

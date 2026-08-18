@@ -149,3 +149,9 @@
 "attribution.env.dead" = "left behind by %@ — session PID %d is gone";
 "orphan.parent.env" = "orphaned — the parent is gone, but the session is readable from its environment";
 "orphan.ports.window" = "listening on port %@, peak %d connections over %d min";
+"orphan.notty" = "no controlling terminal — nothing will ever send it SIGHUP";
+"source.alive" = "still running";
+"source.dead" = "session ended";
+"source.unknown" = "Origin unknown";
+"source.summary" = "%d left behind · %@";
+"overview.processes.sub2" = "%d CLI sessions · %d app · %d descendants";

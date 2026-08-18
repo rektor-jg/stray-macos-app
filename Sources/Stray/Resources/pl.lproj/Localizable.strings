@@ -149,3 +149,9 @@
 "attribution.env.dead" = "zostawione przez %@ — sesja PID %d już nie żyje";
 "orphan.parent.env" = "osierocony — rodzic już nie żyje, ale sesję da się odczytać z jego środowiska";
 "orphan.ports.window" = "nasłuchuje na porcie %@, w szczycie %d połączeń przez %d min";
+"orphan.notty" = "brak terminala sterującego — nic nigdy nie wyśle mu SIGHUP";
+"source.alive" = "nadal działa";
+"source.dead" = "sesja zakończona";
+"source.unknown" = "Pochodzenie nieznane";
+"source.summary" = "zostawiła %d · %@";
+"overview.processes.sub2" = "%d sesje CLI · %d aplikacja · %d potomków";

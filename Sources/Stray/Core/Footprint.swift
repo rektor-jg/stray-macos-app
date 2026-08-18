@@ -2,7 +2,10 @@ import Foundation
 
 /// Bieżący ślad AI w systemie — stan na teraz.
 struct LiveFootprint: Sendable {
-    var agentProcesses: Int = 0        // same binarki agentów
+    var agentProcesses: Int = 0        // same binarki agentów (wszystkie rodzaje)
+    var cliSessions: Int = 0           // realne sesje w terminalu — to one zostawiają sieroty
+    var desktopProcesses: Int = 0      // aplikacja desktopowa i jej procesy pomocnicze
+    var helperProcesses: Int = 0       // mostki, XPC, crashpad
     var descendantProcesses: Int = 0   // ich żywe poddrzewa
     var unattributed: Int = 0          // sieroty sprzed startu Stray — pochodzenia nie znamy
     var cpuPercent: Double = 0
@@ -108,7 +111,16 @@ final class FootprintLedger {
                 continue
             }
 
-            if isAgent { snapshot.agentProcesses += 1 } else { snapshot.descendantProcesses += 1 }
+            if isAgent {
+                snapshot.agentProcesses += 1
+                switch AgentSignatures.kind(name: w.meta.name, command: w.meta.command, tty: w.meta.tty) {
+                case .cliSession: snapshot.cliSessions += 1
+                case .desktopApp: snapshot.desktopProcesses += 1
+                case .helper, .none: snapshot.helperProcesses += 1
+                }
+            } else {
+                snapshot.descendantProcesses += 1
+            }
             snapshot.cpuPercent += w.cpuPercent
             snapshot.rssBytes += w.latest?.rss ?? 0
 

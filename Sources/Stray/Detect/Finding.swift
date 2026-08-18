@@ -1,5 +1,24 @@
 import Foundation
 
+/// Sesja agenta jako źródło znalezisk.
+struct SessionSource: Sendable, Hashable, Identifiable {
+    let vendor: String        // "claude", "codex", …
+    let sessionID: String?    // stabilny identyfikator, jeśli znany
+    let pid: Int32?           // PID sesji, jeśli znany
+    let alive: Bool           // czy ta sesja nadal działa
+    let tty: String?          // terminal sesji — najczytelniejszy adres dla człowieka
+
+    var id: String { sessionID ?? pid.map { "\(vendor)-\($0)" } ?? vendor }
+
+    /// „claude · ttys000 · PID 2061" — tak użytkownik znajdzie tę kartę w terminalu.
+    var label: String {
+        var parts = [vendor]
+        if let tty { parts.append(tty) }
+        if let pid { parts.append("PID \(pid)") }
+        return parts.joined(separator: " · ")
+    }
+}
+
 enum Severity: Int, Comparable, Sendable {
     case info = 0      // widoczne w liście, nie alarmuje
     case warning = 1   // żółty badge
@@ -33,6 +52,11 @@ struct Finding: Sendable, Identifiable {
     let reclaimBytes: UInt64 // ile pamięci wróci po ubiciu
     let command: String
     let startedAt: Date
+
+    /// Sesja agenta, która ten proces zostawiła — klucz do grupowania w UI.
+    /// `nil`, gdy pochodzenia nie znamy. Ubicie sieroty nie sprawia, że sesja
+    /// przestanie produkować kolejne; użytkownik musi widzieć, KTO śmieci.
+    let source: SessionSource?
 
     /// Klucz do deduplikacji i cooldownu. Musi przeżyć kolejne próbki tego samego problemu.
     var id: String { "\(detector.rawValue):\(pid)" }

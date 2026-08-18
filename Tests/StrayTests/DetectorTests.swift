@@ -41,7 +41,8 @@ final class DetectorTests: XCTestCase {
             startedAt: start, firstSeenAt: now.addingTimeInterval(-spanSeconds),
             originalPPID: ppid == 1 ? 60836 : ppid,
             originalAncestry: ["zsh", "claude.exe"],
-            agentEnv: agentEnv
+            agentEnv: agentEnv,
+            tty: nil
         )
         let step = spanSeconds / Double(max(1, sampleCount - 1))
         let cpuPerSampleNanos = UInt64(cpuPercent / 100 * step * 1_000_000_000)
@@ -214,9 +215,32 @@ final class DetectorTests: XCTestCase {
         let meta = ProcMeta(pid: 12672, uid: 501, name: "node",
                             command: "npm exec next dev -p 3111",
                             startedAt: Date(), firstSeenAt: Date(),
-                            originalPPID: 1, originalAncestry: [], agentEnv: nil)
+                            originalPPID: 1, originalAncestry: [], agentEnv: nil, tty: nil)
         let attribution = Titles.attribution(for: meta)
         XCTAssertEqual(attribution, L("attribution.unknown"))
+    }
+
+    /// Sieroty bez terminala sterującego dostają wyjaśnienie DLACZEGO nikt ich nie sprzątnął.
+    func testOrphanExplainsMissingControllingTerminal() {
+        let w = window(name: "node", command: "npm exec next dev -p 3111",
+                       ppid: 1, ageSeconds: 5 * 3600, cpuPercent: 0, threads: 6, rssStartMB: 500)
+        // fixture domyślnie ma tty: nil — dokładnie stan sieroty po agencie
+        let f = OrphanDetector().evaluate(w, config: offline())
+        XCTAssertTrue(f!.detail.contains { $0.contains("SIGHUP") },
+                      "opis ma tłumaczyć mechanizm: brak PTY = brak SIGHUP")
+    }
+
+    /// Znalezisko niesie sesję-źródło do grupowania.
+    func testFindingCarriesSourceSession() {
+        let env = ProcScanner.AgentEnv(vendor: "claude", sessionID: "52cefadb-1234",
+                                       agentPID: 2061, entrypoint: "cli")
+        let w = window(name: "node", command: "npm exec next dev -p 3111",
+                       ppid: 1, ageSeconds: 5 * 3600, cpuPercent: 0, threads: 6,
+                       rssStartMB: 500, agentEnv: env)
+        let f = OrphanDetector().evaluate(w, config: offline())
+        XCTAssertEqual(f?.source?.vendor, "claude")
+        XCTAssertEqual(f?.source?.sessionID, "52cefadb-1234")
+        XCTAssertEqual(f?.source?.pid, 2061)
     }
 
     // MARK: - D3 Leak
@@ -264,7 +288,7 @@ final class DetectorTests: XCTestCase {
         let meta = ProcMeta(pid: 1, uid: 501, name: "node",
                             command: "npm exec expo start --port 8081 --lan",
                             startedAt: Date(), firstSeenAt: Date(),
-                            originalPPID: 2, originalAncestry: [], agentEnv: nil)
+                            originalPPID: 2, originalAncestry: [], agentEnv: nil, tty: nil)
         XCTAssertEqual(Titles.short(for: meta), "expo start :8081")
     }
 }

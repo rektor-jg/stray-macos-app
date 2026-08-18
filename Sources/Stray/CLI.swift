@@ -62,7 +62,8 @@ enum CLI {
         let live = ledger.live
         print("ŚLAD AI W SYSTEMIE\n")
         print("── TERAZ")
-        print("   Procesy AI:      \(live.totalProcesses)  (\(live.agentProcesses) agentów + \(live.descendantProcesses) potomków)")
+        print("   Procesy AI:      \(live.totalProcesses)")
+        print("                    \(live.cliSessions) sesje CLI · \(live.desktopProcesses) aplikacja desktopowa · \(live.helperProcesses) pomocnicze · \(live.descendantProcesses) potomków")
         print(String(format: "   CPU:             %.0f%%", live.cpuPercent))
         print("   Pamięć:          \(byteString(live.rssBytes))")
         if live.unattributed > 0 {
@@ -143,7 +144,19 @@ enum CLI {
             return
         }
 
-        for f in findings {
+        // Grupowanie po sesji-źródle — tak samo jak w zakładce Procesy.
+        var groups: [String: (SessionSource?, [Finding])] = [:]
+        for f in findings { groups[f.source?.id ?? "?", default: (f.source, [])].1.append(f) }
+        let ordered = groups.values.sorted { ($0.0 != nil ? 0 : 1, -$0.1.count) < ($1.0 != nil ? 0 : 1, -$1.1.count) }
+
+        for (source, members) in ordered {
+            let mb = Double(members.reduce(0) { $0 + $1.reclaimBytes }) / 1_048_576
+            if let s = source {
+                print("── \(s.label)  \(s.alive ? L("source.alive") : L("source.dead"))  ·  \(L("source.summary", members.count, String(format: "%.0f MB", mb)))")
+            } else {
+                print("── \(L("source.unknown"))  ·  \(L("source.summary", members.count, String(format: "%.0f MB", mb)))")
+            }
+        for f in members {
             let mark = f.severity == .critical ? "[!]" : (f.severity == .warning ? "[?]" : "[ ]")
             print("\(mark) \(f.title) · PID \(f.pid)")
             print("    \(f.summary)")
@@ -151,6 +164,7 @@ enum CLI {
             if let a = f.attribution { print("      ↳ \(a)") }
             print("      $ \(SecretMasker.mask(String(f.command.prefix(100))))")
             print("")
+        }
         }
         let mb = Double(findings.reduce(0) { $0 + $1.reclaimBytes }) / 1_048_576
         print(String(format: "Razem: %d znalezisk, do odzyskania %.0f MB", findings.count, mb))

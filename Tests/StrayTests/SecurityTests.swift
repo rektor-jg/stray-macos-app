@@ -166,6 +166,20 @@ final class SecurityTests: XCTestCase {
         }
     }
 
+    /// „13 agentów" mieszało sesje CLI z aplikacją desktopową i mostkami.
+    func testAgentKindSeparatesSessionsFromDesktopApp() {
+        XCTAssertEqual(AgentSignatures.kind(name: "claude", command: "/opt/homebrew/bin/claude",
+                                            tty: "ttys000"), .cliSession)
+        XCTAssertEqual(AgentSignatures.kind(name: "Claude Helper (Renderer)",
+                                            command: "/Applications/Claude.app/Contents/Frameworks/Claude Helper (Renderer).app/Contents/MacOS/Claude Helper (Renderer)",
+                                            tty: nil), .desktopApp)
+        XCTAssertEqual(AgentSignatures.kind(name: "claude.exe",
+                                            command: "/opt/homebrew/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe",
+                                            tty: nil), .helper,
+                       "agent bez terminala to mostek/infrastruktura, nie sesja")
+        XCTAssertNil(AgentSignatures.kind(name: "node", command: "/usr/local/bin/node", tty: "ttys000"))
+    }
+
     /// Aplikacja nie ma prawa wychodzić do sieci — czyta cudze linie poleceń,
     /// więc każde połączenie byłoby kanałem wycieku.
     func testNoNetworkSymbolsLinked() throws {

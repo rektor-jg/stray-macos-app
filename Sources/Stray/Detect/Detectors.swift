@@ -78,7 +78,8 @@ struct SpinnerDetector: Detector {
             attribution: Titles.attribution(for: w.meta),
             reclaimBytes: w.subtreeRSS,
             command: w.meta.command,
-            startedAt: w.meta.startedAt
+            startedAt: w.meta.startedAt,
+            source: Titles.source(for: w.meta)
         )
     }
 }
@@ -136,6 +137,11 @@ struct OrphanDetector: Detector {
                     : L("orphan.parent.dead", w.meta.originalPPID)),
             L("orphan.age", fmt(w.age), w.descendants.count + 1, w.subtreeRSSMB),
         ]
+        // Drugi, niezależny dowód. PPID == 1 mówi, że rodzic umarł; brak terminala
+        // sterującego mówi, dlaczego nikt tego potem nie posprzątał: bez PTY nie ma SIGHUP.
+        if w.meta.tty == nil {
+            detail.append(L("orphan.notty"))
+        }
         if !sockets.listeningPorts.isEmpty {
             let portList = sockets.listeningPorts.map(String.init).joined(separator: ", ")
             detail.append(observedLongEnough
@@ -158,7 +164,8 @@ struct OrphanDetector: Detector {
             attribution: Titles.attribution(for: w.meta),
             reclaimBytes: inUse ? 0 : w.subtreeRSS,
             command: w.meta.command,
-            startedAt: w.meta.startedAt
+            startedAt: w.meta.startedAt,
+            source: Titles.source(for: w.meta)
         )
     }
 }
@@ -187,7 +194,8 @@ struct LeakDetector: Detector {
             attribution: Titles.attribution(for: w.meta),
             reclaimBytes: 0,
             command: w.meta.command,
-            startedAt: w.meta.startedAt
+            startedAt: w.meta.startedAt,
+            source: Titles.source(for: w.meta)
         )
     }
 }

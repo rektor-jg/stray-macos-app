@@ -85,7 +85,8 @@ final class Sampler {
                     firstSeenAt: now,
                     originalPPID: ppid,
                     originalAncestry: ancestry,
-                    agentEnv: info.agent
+                    agentEnv: info.agent,
+                    tty: ProcScanner.controllingTTY(pid)
                 )
                 history[pid] = RingBuffer(capacity: Self.historyDepth)
             }

@@ -29,7 +29,10 @@ struct OverviewView: View {
             HStack(spacing: 8) {
                 StatTile(title: L("overview.processes"),
                          value: "\(engine.live.totalProcesses)",
-                         sub: L("overview.processes.sub", engine.live.agentProcesses, engine.live.descendantProcesses))
+                         sub: L("overview.processes.sub2",
+                                engine.live.cliSessions,
+                                engine.live.desktopProcesses + engine.live.helperProcesses,
+                                engine.live.descendantProcesses))
                 StatTile(title: L("overview.cpu"),
                          value: String(format: "%.0f%%", engine.live.cpuPercent),
                          sub: L("overview.cpu.sub"),

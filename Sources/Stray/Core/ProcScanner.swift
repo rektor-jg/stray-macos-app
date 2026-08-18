@@ -78,6 +78,26 @@ enum ProcScanner {
                 Int32(bitPattern: t.pbsd.pbi_ppid), started)
     }
 
+    /// Terminal sterujący procesu — to samo, co kolumna TTY w `ps`.
+    ///
+    /// `nil` znaczy „brak" (`ps` drukuje wtedy `??`). To jest mechanizm stojący za całym
+    /// zjawiskiem sierot: agent odpala polecenia przez potoki, bo musi przechwycić stdout,
+    /// więc dziecko nigdy nie dostaje PTY. Bez terminala sterującego nie ma SIGHUP przy
+    /// zamknięciu okna, a bez SIGHUP nic nigdy nie każe temu procesowi umrzeć.
+    ///
+    /// Sam PPID == 1 mówi tylko, że rodzic umarł. Brak terminala mówi, DLACZEGO nikt
+    /// go po tym nie posprzątał — i jest niezależnym, tanim potwierdzeniem diagnozy.
+    static func controllingTTY(_ pid: Int32) -> String? {
+        let PROC_PIDTBSDINFO: Int32 = 3
+        var info = proc_bsdinfo()
+        let size = Int32(MemoryLayout<proc_bsdinfo>.size)
+        let rc = withUnsafeMutablePointer(to: &info) {
+            proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, $0, size)
+        }
+        guard rc == size, info.e_tdev != 0xFFFF_FFFF else { return nil }   // NODEV
+        return String(format: "ttys%03d", info.e_tdev & 0xFF_FFFF)
+    }
+
     /// Ślad agenta odczytany ze ZMIENNYCH ŚRODOWISKOWYCH procesu.
     ///
     /// To jest pomiar, nie zgadywanie po nazwie binarki. Środowisko dziedziczy się przez

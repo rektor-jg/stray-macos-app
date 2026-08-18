@@ -27,6 +27,28 @@ Both had `PPID == 1` — the shell that started them was long dead and `launchd`
 
 AI agents generate a new class of system debris, and no existing tool understands it, because no existing tool knows what an *agent session* is.
 
+## Why this happens — it is not a bug
+
+The first reaction from every experienced engineer who sees this is one of two things: *"you must be running it in tmux"* or *"that can't happen — killing the parent kills the child."* Both are wrong, and it is worth being precise about why, because the mechanism is what makes this problem universal rather than a quirk of one tool.
+
+**Killing a parent never kills its children.** POSIX has no such rule. Orphans are reparented to PID 1 and carry on. What normally cleans up your dev servers when you close a terminal tab is something else entirely: the kernel sends `SIGHUP` to the foreground process group of that terminal's *controlling TTY*.
+
+**Agents don't allocate a TTY.** They have to capture stdout, so they run commands through pipes, not through a pseudo-terminal. A process started that way has no controlling terminal — `ps` shows `??` in the TTY column:
+
+```
+  PID  PPID TTY      COMMAND
+12672     1 ??       npm exec next dev -p 3111
+39845     1 ??       npm exec expo start --port 8081
+```
+
+No controlling terminal means no `SIGHUP`, ever. There is nothing to close that would make these processes die. The parent exits, `launchd` adopts them, and they run until the machine reboots.
+
+**tmux is the opposite of the explanation.** A multiplexer is a *deliberate* mechanism for keeping processes alive across sessions. These processes are alive because a mechanism that would normally kill them is *absent*.
+
+The correct fix on the agent's side would be to place children in their own process group and kill the group when the session ends. Nobody does that, because a long-running dev server is often exactly what the user wanted — it is supposed to outlive the single command that started it. Nobody has defined for how long. Stray sits in that gap.
+
+Stray reads the controlling TTY of every process it tracks and reports its absence as independent evidence alongside `PPID == 1`: the first says the parent died, the second says why nothing cleaned up afterwards.
+
 ---
 
 ## What it does
@@ -35,11 +57,19 @@ Three tabs, each answering a different question.
 
 ### Overview — what is AI costing me right now
 
-Live process and memory totals for everything traceable to an agent, CPU-hours accumulated today and this week, a ranked "worth turning off" list, and a disk summary. Every number is labelled with how confidently it can be attributed (see [Attribution](#attribution-how-we-know-it-is-ai)).
+Live process and memory totals for everything traceable to an agent — split into **CLI sessions** (the ones that leave orphans), the **desktop app** and its helpers, and their descendants, because "13 agents" is technically true and completely misleading — plus CPU-hours accumulated today and this week, a ranked "worth turning off" list, and a disk summary. Every number is labelled with how confidently it can be attributed (see [Attribution](#attribution-how-we-know-it-is-ai)).
 
-### Processes — what is broken right now
+### Processes — what is broken right now, and who did it
 
-Findings from three detectors, coloured by how much you would reclaim, each with a one-sentence recommendation.
+Findings from three detectors, coloured by how much you would reclaim, each with a one-sentence recommendation — **grouped by the agent session that left them**:
+
+```
+── claude · ttys000 · PID 2061   still running   ·   2 left behind · 638 MB
+   next dev :3111     Orphan — 8 h 48 min, no connections
+   expo start :8081   Orphan, but in use — 5 conn.
+```
+
+Killing an orphan does not stop the session from producing the next one. "2 orphans, 638 MB" tells you what to clean; "session ttys000 left 2 servers and is still running" tells you which terminal tab to look at.
 
 | Detector | Signal |
 |---|---|

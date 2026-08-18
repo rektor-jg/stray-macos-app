@@ -1,6 +1,22 @@
 import Foundation
 
 enum Titles {
+    /// Sesja-źródło znaleziska. Środowisko daje PID sesji; sprawdzamy, czy żyje,
+    /// i dociągamy jej terminal — bo „ttys000" jest dla człowieka adresem,
+    /// a „PID 2061" tylko liczbą.
+    static func source(for meta: ProcMeta) -> SessionSource? {
+        guard let env = meta.agentEnv else {
+            // zapas: linia przodków bez środowiska — wiemy „kto", nie wiemy „która"
+            guard let vendor = meta.agentSession else { return nil }
+            return SessionSource(vendor: vendor, sessionID: nil, pid: nil, alive: false, tty: nil)
+        }
+        let pid = env.agentPID
+        let alive = pid.map(ProcessActions.isAlive) ?? false
+        let tty = (alive ? pid : nil).flatMap(ProcScanner.controllingTTY)
+        return SessionSource(vendor: env.vendor, sessionID: env.sessionID,
+                             pid: pid, alive: alive, tty: tty)
+    }
+
     /// Zwięzła nazwa do listy: "next dev :3111" zamiast 200 znaków argv.
     static func short(for meta: ProcMeta) -> String {
         let cmd = meta.command

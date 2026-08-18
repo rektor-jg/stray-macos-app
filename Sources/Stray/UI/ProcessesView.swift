@@ -14,14 +14,46 @@ struct ProcessesView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(engine.findings) { finding in
-                        FindingRow(finding: finding, engine: engine)
-                        Divider()
+                LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                    ForEach(engine.groupedBySource) { group in
+                        Section {
+                            ForEach(group.findings) { finding in
+                                FindingRow(finding: finding, engine: engine)
+                                Divider()
+                            }
+                        } header: {
+                            SourceHeader(group: group)
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+/// Nagłówek grupy: kto zostawił te procesy i czy nadal działa.
+struct SourceHeader: View {
+    let group: Engine.SourceGroup
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: group.source == nil ? "questionmark.circle" : "terminal")
+                .font(.caption2)
+                .foregroundStyle(group.source?.alive == true ? .orange : .secondary)
+            if let s = group.source {
+                Text(s.label).font(.caption).bold()
+                Text(s.alive ? L("source.alive") : L("source.dead"))
+                    .font(.caption2)
+                    .foregroundStyle(s.alive ? .orange : .secondary)
+            } else {
+                Text(L("source.unknown")).font(.caption).bold()
+            }
+            Spacer()
+            Text(L("source.summary", group.findings.count, byteString(group.reclaimBytes)))
+                .font(.caption2).foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 12).padding(.vertical, 6)
+        .background(.bar)
     }
 }
 

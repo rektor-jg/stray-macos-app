@@ -24,6 +24,9 @@ struct ProcMeta: Sendable, Identifiable {
     /// bo jest pomiarem, a nie wnioskiem — i przeżywa osierocenie.
     let agentEnv: ProcScanner.AgentEnv?
 
+    /// Terminal sterujący z chwili pierwszego zobaczenia; `nil` = brak (`??` w `ps`).
+    let tty: String?
+
     var id: Int32 { pid }
 
     /// Do której sesji agenta należy ten proces.
