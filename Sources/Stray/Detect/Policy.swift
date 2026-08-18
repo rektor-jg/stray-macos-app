@@ -11,7 +11,7 @@ final class Policy {
     /// Filtruje surowe znaleziska przez listę ignorowanych.
     func filter(_ findings: [Finding]) -> [Finding] {
         findings
-            .filter { !Whitelist.isUserIgnored($0.command) }
+            .filter { !IgnoreList.contains($0.command) }
             .sorted { ($0.severity, $0.reclaimBytes) > ($1.severity, $1.reclaimBytes) }
     }
 

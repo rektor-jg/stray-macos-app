@@ -1,8 +1,15 @@
 import Foundation
 
-/// Moduł anty-fałszywych-alarmów. Produkt umiera w tydzień, jeśli krzyknie na legalny build,
-/// więc to jest najważniejszy plik w całym projekcie, mimo że wygląda najbanalniej.
-enum Whitelist {
+/// Klasyfikacja procesów — odpowiada na pytanie "czym to w ogóle jest".
+///
+/// Najważniejszy plik w projekcie mimo że wygląda najbanalniej: to on decyduje,
+/// czy detektor odezwie się na legalny build. Produkt, który krzyczy przy każdej
+/// kompilacji, zostaje wyłączony w tydzień.
+///
+/// (Dawniej `Whitelist` — nazwa opisywała tylko połowę tego, co ten typ robił,
+/// bo trzymał też listę ignorowanych przez użytkownika. Ta druga rola żyje
+/// teraz w `IgnoreList`.)
+enum ProcessRules {
 
     /// Narzędzia, którym wolno palić 100% CPU godzinami. Build to nie jest awaria.
     private static let buildTools = [
@@ -41,37 +48,5 @@ enum Whitelist {
             || command.hasPrefix("/Applications/")
             || command.contains("/Library/PrivateFrameworks/")
             || command.contains("XPCServices")
-    }
-
-    // MARK: - lista użytkownika
-
-    private static let defaultsKey = "stray.ignoredCommands"
-
-    static func userIgnored() -> Set<String> {
-        Set(UserDefaults.standard.stringArray(forKey: defaultsKey) ?? [])
-    }
-
-    static func ignore(_ command: String) {
-        var current = userIgnored()
-        current.insert(fingerprint(command))
-        UserDefaults.standard.set(Array(current), forKey: defaultsKey)
-    }
-
-    static func isUserIgnored(_ command: String) -> Bool {
-        userIgnored().contains(fingerprint(command))
-    }
-
-    /// Odcisk odporny na zmianę PID-a i ścieżek tymczasowych — inaczej "ignoruj ten proces"
-    /// przestawałoby działać po każdym restarcie serwera.
-    ///
-    /// Maskowanie PRZED zapisem jest tu obowiązkowe, nie kosmetyczne: ta wartość ląduje
-    /// w UserDefaults, czyli w pliku plist na dysku, który przeżywa aplikację i którego
-    /// użytkownik nigdy nie ogląda. Bez tego `--token=ghp_…` z linii poleceń zostawałby
-    /// tam w jawnej postaci na zawsze.
-    ///
-    /// Efekt uboczny jest pożądany: dwie komendy różniące się wyłącznie tokenem dają
-    /// ten sam odcisk, więc "ignoruj" przeżywa rotację klucza.
-    private static func fingerprint(_ command: String) -> String {
-        SecretMasker.mask(command.split(separator: " ").prefix(4).joined(separator: " "))
     }
 }

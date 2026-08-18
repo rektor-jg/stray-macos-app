@@ -1,8 +1,14 @@
-.DS_Store
+# artefakty budowania
 .build/
-.swiftpm/
+build/
 DerivedData/
-*.xcuserstate
-xcuserdata/
 *.dmg
 *.zip
+
+# Xcode / SwiftPM
+.swiftpm/
+*.xcuserstate
+xcuserdata/
+
+# system
+.DS_Store

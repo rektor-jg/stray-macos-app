@@ -155,7 +155,7 @@ final class Engine: ObservableObject {
     }
 
     func ignore(_ finding: Finding) {
-        Whitelist.ignore(finding.command)
+        IgnoreList.add(finding.command)
         findings.removeAll { $0.id == finding.id }
     }
 

@@ -52,7 +52,7 @@ final class SecurityTests: XCTestCase {
         defer { UserDefaults.standard.set(backup, forKey: key) }
         UserDefaults.standard.removeObject(forKey: key)
 
-        for command in leaky { Whitelist.ignore(command) }
+        for command in leaky { IgnoreList.add(command) }
 
         let persisted = (UserDefaults.standard.stringArray(forKey: key) ?? []).joined(separator: " ")
         for secret in mustNotSurvive {
@@ -68,9 +68,9 @@ final class SecurityTests: XCTestCase {
         UserDefaults.standard.removeObject(forKey: key)
 
         // Maskowanie sprowadza token do stałej, więc rotacja klucza nie gubi wyboru użytkownika.
-        Whitelist.ignore("node deploy.js --token=ghp_AAAAAAAAAAAAAAAAAAAA --env prod")
+        IgnoreList.add("node deploy.js --token=ghp_AAAAAAAAAAAAAAAAAAAA --env prod")
         XCTAssertTrue(
-            Whitelist.isUserIgnored("node deploy.js --token=ghp_BBBBBBBBBBBBBBBBBBBB --env prod"),
+            IgnoreList.contains("node deploy.js --token=ghp_BBBBBBBBBBBBBBBBBBBB --env prod"),
             "ignorowanie ma przeżyć rotację tokenu")
     }
 

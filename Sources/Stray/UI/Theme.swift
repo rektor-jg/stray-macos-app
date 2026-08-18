@@ -1,5 +1,34 @@
 import SwiftUI
 
+/// Skala natężenia. Kolor ma nieść informację, a nie dekorować:
+/// czerwony znaczy „to jest dużo i prawdopodobnie da się odzyskać".
+enum Heat: Int, Sendable {
+    case calm = 0, notable = 1, high = 2, severe = 3
+
+    static func forMemory(bytes: UInt64) -> Heat {
+        let mb = Double(bytes) / 1_048_576
+        if mb >= 1500 { return .severe }
+        if mb >= 500  { return .high }
+        if mb >= 100  { return .notable }
+        return .calm
+    }
+
+    static func forCPU(percent: Double) -> Heat {
+        if percent >= 70 { return .severe }
+        if percent >= 25 { return .high }
+        if percent >= 5  { return .notable }
+        return .calm
+    }
+
+    static func forDisk(bytes: UInt64) -> Heat {
+        let gb = Double(bytes) / 1_073_741_824
+        if gb >= 10 { return .severe }
+        if gb >= 2  { return .high }
+        if gb >= 0.5 { return .notable }
+        return .calm
+    }
+}
+
 extension Heat {
     var color: Color {
         switch self {

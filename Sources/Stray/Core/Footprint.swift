@@ -100,8 +100,8 @@ final class FootprintLedger {
 
             guard isAgent || isDescendant else {
                 // Sierota bez znanego rodzica — osobny worek, nigdy nie doliczana do AI.
-                if w.isOrphan && Whitelist.isDevTool(w.meta.command)
-                    && !Whitelist.isGUIApp(w.meta.command) {
+                if w.isOrphan && ProcessRules.isDevTool(w.meta.command)
+                    && !ProcessRules.isGUIApp(w.meta.command) {
                     snapshot.unattributed += 1
                     snapshot.unattributedRSSBytes += w.subtreeRSS
                 }

@@ -8,7 +8,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 PROFILE="${NOTARY_PROFILE:-stray-notary}"
-VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Resources/Info.plist)"
+VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' App/Info.plist)"
 APP="build/Stray.app"
 DMG="build/Stray-${VERSION}.dmg"
 
@@ -79,7 +79,7 @@ swift build -c release
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp .build/release/Stray "$APP/Contents/MacOS/Stray"
-cp Resources/Info.plist "$APP/Contents/Info.plist"
+cp App/Info.plist "$APP/Contents/Info.plist"
 # zasoby lokalizacji wygenerowane przez SwiftPM
 if [ -d ".build/release/Stray_Stray.bundle" ]; then
     cp -R ".build/release/Stray_Stray.bundle" "$APP/Contents/Resources/"
