@@ -359,6 +359,90 @@ realny problem z case study. Każda kolejna wersja dokłada jedną warstwę.
 
 ---
 
+---
+
+## Status — v0.2, działa
+
+Zbudowane i uruchomione 18.08.2026. **18/18 testów przechodzi**, aplikacja siedzi w pasku menu
+i wykrywa realne sieroty na maszynie, na której powstała.
+
+```bash
+./scripts/bundle.sh release          # zbuduj Stray.app
+open build/Stray.app                 # uruchom (ikona w pasku, bez Docka)
+./build/Stray.app/Contents/MacOS/Stray --scan   # jednorazowy skan w terminalu
+swift test                           # 18 testów detektorów, offline
+```
+
+### Co działa
+
+| | |
+|---|---|
+| Sampler `libproc` | ✅ ~4 ms na 763 procesy |
+| Pamięć linii przodków | ✅ zapisywana przy pierwszym zobaczeniu |
+| **D1 Spinner** | ✅ + `sample` + tłumaczenie stosu |
+| **D2 Orphan** | ✅ ze świadomością poddrzewa i gniazd |
+| **D3 Leak** | ✅ trend RSS |
+| Popover, kill, raport, ignorowanie | ✅ |
+| Powiadomienia | ✅ tylko D1 |
+| Maskowanie sekretów | ✅ liniowe, bez regexa |
+| D4/D5/D6, warstwa dyskowa | ⬜ v0.4 / v0.6 |
+
+### Przykładowe wyjście `--scan` z maszyny źródłowej
+
+```
+[ ] next dev :3111 · PID 12672
+    Sierota, ale w użyciu — 1 poł., 765 MB
+      · osierocony jeszcze zanim Stray wystartował — rodzica nie da się ustalić
+      · żyje od 5 h 14 min, poddrzewo 3 procesów, 765 MB
+      · nasłuchuje na porcie 3111, połączeń: 1
+
+Koszt własny: 3.9 ms na próbkę (0.131% CPU przy oknie 3 s)
+```
+
+---
+
+## Czego nauczyło pierwsze uruchomienie na żywym systemie
+
+Trzy rzeczy, których nie dało się przewidzieć przy projektowaniu — wszystkie wyszły dopiero
+przy konfrontacji z prawdziwymi procesami.
+
+**1. Proces to nie jest jednostka obserwacji. Drzewo jest.**
+Pierwszy skan raportował 56 MB tam, gdzie realnie leżało 654 MB, bo `npm exec next dev` to
+w rzeczywistości łańcuch `npm → node → next-server` i cała pamięć oraz port należą do wnuka.
+Groźniejsza była konsekwencja dla akcji: ubicie samego korzenia **osierociłoby dzieci jeszcze
+bardziej**, niż były. Zarówno pomiar, jak i `kill` musiały przejść na poddrzewa
+(`terminateTree` idzie od liści w górę).
+
+**2. Detektor sięgający do systemu nie jest testowalny.**
+`OrphanDetector` wołał `ProcScanner.socketState` bezpośrednio. Test użył zmyślonych PID-ów
+12689/12690 — które akurat **istniały na maszynie** i miały aktywne połączenia. Test padł
+z winy nie swojej, tylko architektury. Sonda gniazd jest teraz wstrzykiwana przez
+`DetectorConfig.socketProbe`; dopiero to czyni obietnicę „czyste funkcje, testowalne offline"
+prawdziwą — i dopiero to pozwoliło w ogóle napisać test przypadku „sierota w użyciu".
+
+**3. Nie wolno zmyślać atrybucji.**
+Dla procesów, które osierociały przed startem Stray, komunikat brzmiał „rodzic (PID 1) już nie
+żyje" — zdanie bez sensu. Teraz mówi wprost: *pochodzenie nieznane, proces był sierotą, zanim
+Stray wystartował*. Od następnego takiego procesu atrybucja będzie pełna, bo zobaczymy go za
+życia rodzica. Narzędzie diagnostyczne, które zgaduje, jest gorsze od takiego, które się przyznaje.
+
+---
+
+## Znane odstępstwa i otwarte kwestie
+
+- **Pamięć ponad budżet.** Założenie brzmiało < 30 MB, pomiar daje **~93 MB RSS**.
+  Historia (763 procesy × 120 próbek) to tylko ~6 MB — reszta to baseline SwiftUI/AppKit.
+  Cel 30 MB był nierealny dla SwiftUI; realny to ~60 MB i wymaga skrócenia historii dla procesów,
+  które nigdy nie zbliżyły się do żadnego progu. **CPU natomiast trzyma się z zapasem: 0,13%
+  przy budżecie 0,3%.**
+- **Czy jedno połączenie znaczy „w użyciu"?** `next dev` po 5 godzinach miał 1 otwarte połączenie —
+  równie dobrze zapomniana karta przeglądarki albo wiszący websocket HMR, jak realna praca.
+  Obecna reguła („w użyciu bije sierota") jest celowo zachowawcza i **nie zgłasza takiego procesu**.
+  Właściwe rozstrzygnięcie wymaga licznika ruchu na gnieździe, nie samego faktu połączenia.
+- Rozpoznawanie sesji agenta idzie po nazwie binarki; nazwy się zmieniają.
+- Tryb języka Swift 5 zamiast 6 — dług do spłacenia przy okazji v0.5.
+
+
 ## 12. Licencja
 
 MIT.
