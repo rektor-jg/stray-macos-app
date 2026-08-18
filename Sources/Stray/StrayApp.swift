@@ -14,6 +14,10 @@ struct StrayApp: App {
             CLI.footprint()
             exit(0)
         }
+        if CommandLine.arguments.contains("--clean") {
+            CLI.cleanDryRun()
+            exit(0)
+        }
         if CommandLine.arguments.contains("--disk") {
             CLI.disk()
             exit(0)

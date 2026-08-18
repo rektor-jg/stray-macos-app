@@ -13,6 +13,8 @@ final class Engine: ObservableObject {
     @Published private(set) var weekCPUHours: Double = 0
     @Published private(set) var diskReport: DiskReport?
     @Published private(set) var diskStage: String?
+    @Published private(set) var isDeleting = false
+    @Published var lastCleanup: (freed: UInt64, skipped: Int)?
 
     private let sampler = Sampler()
     private let ledger = FootprintLedger()
@@ -97,6 +99,40 @@ final class Engine: ObservableObject {
             }
         }
     }
+
+    /// Kasowanie idzie przez DiskActions, które re-waliduje każdą pozycję tuż przed
+    /// usunięciem — raport może mieć kilkanaście minut, a świat mógł się zmienić.
+    func deleteDisk(_ items: [DiskItem], permanent: Bool) {
+        guard !items.isEmpty, !isDeleting else { return }
+        isDeleting = true
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            var freed: UInt64 = 0
+            var skipped = 0
+            var removed = Set<String>()
+            for item in items {
+                do {
+                    let bytes = permanent
+                        ? try DiskActions.deletePermanently(item)
+                        : try DiskActions.trash(item)
+                    freed += bytes
+                    removed.insert(item.path)
+                } catch {
+                    skipped += 1
+                }
+            }
+            Task { @MainActor in
+                guard let self else { return }
+                if freed > 0 { self.ledgerRecordDiskCleanup(freed) }
+                self.diskReport?.items.removeAll { removed.contains($0.path) }
+                self.lastCleanup = (freed, skipped)
+                self.isDeleting = false
+                self.today = self.currentToday()
+            }
+        }
+    }
+
+    private func ledgerRecordDiskCleanup(_ freed: UInt64) { ledger.recordDiskCleanup(freed: freed) }
+    private func currentToday() -> DailyFootprint { ledger.today }
 
     func scanDisk() {
         guard diskStage == nil else { return }

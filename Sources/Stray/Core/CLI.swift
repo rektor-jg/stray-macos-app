@@ -6,6 +6,47 @@ import Foundation
 /// i żeby dowieść, że działają, zanim powstanie choćby jeden widok.
 enum CLI {
 
+    /// Tryb `--clean`: WYŁĄCZNIE próba na sucho. Kasowanie żyje w GUI, bo tam jest
+    /// ekran potwierdzenia — narzędzie, które kasuje gigabajty jednym flagiem
+    /// w terminalu, prędzej czy później zrobi to komuś przez pomyłkę.
+    static func cleanDryRun() {
+        let report = DiskScanner.scan { stage in
+            FileHandle.standardError.write("\r  \(stage)…            ".data(using: .utf8)!)
+        }
+        FileHandle.standardError.write("\r".data(using: .utf8)!)
+
+        print(L("cli.dryrun.title") + "\n")
+        var total: UInt64 = 0
+        for item in report.items where item.safeToDelete {
+            let deletable = DiskActions.deletableBytes(item)
+            let blocked = item.bytes > deletable ? item.bytes - deletable : 0
+            total += deletable
+            print("  × \(pad(item.displayName, 38)) \(byteString(deletable))")
+            if blocked > 0 {
+                print("      \(byteString(blocked)) pominięte: \(L("disk.confirm.scratchpad"))")
+            }
+            if let err = validationError(item) {
+                print("      ! \(err)")
+            }
+        }
+        print("\n  " + L("disk.confirm.total", byteString(total)))
+
+        let protected = report.items.filter { !$0.safeToDelete }
+        if !protected.isEmpty {
+            print("\n" + L("cli.dryrun.protected") + "\n")
+            for item in protected {
+                print("  · \(pad(item.displayName, 38)) \(byteString(item.bytes))")
+                print("      \(item.note)")
+            }
+        }
+    }
+
+    private static func validationError(_ item: DiskItem) -> String? {
+        do { try DiskActions.validate(item); return nil }
+        catch { return error.localizedDescription }
+    }
+
+
     /// Tryb `--footprint`: te same liczby, które pokazuje ekran Przegląd.
     static func footprint(seconds: Int = 12) {
         let sampler = Sampler()

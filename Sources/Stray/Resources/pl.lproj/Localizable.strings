@@ -127,3 +127,20 @@
 "disk.stage.derived" = "DerivedData";
 "disk.stage.caches" = "cache pakietów";
 "disk.stage.modules" = "node_modules";
+
+/* --- kasowanie z dysku --- */
+"disk.trash" = "Przenieś do Kosza";
+"disk.deleteperm" = "Usuń trwale";
+"disk.cleanall" = "Posprzątaj wszystko bezpieczne (%@)";
+"disk.confirm.title" = "Usunąć %d pozycji?";
+"disk.confirm.total" = "Razem %@";
+"disk.confirm.trash" = "Pozycje trafią do Kosza — do odzyskania jednym kliknięciem, ale miejsce wróci dopiero po jego opróżnieniu.";
+"disk.confirm.perm" = "Trwałe usunięcie zwalnia miejsce od razu i nie da się go cofnąć.";
+"disk.confirm.scratchpad" = "Scratchpady sesji tkniętych w ostatniej dobie są automatycznie pomijane — należą do sesji, które wciąż działają.";
+"disk.confirm.revalidate" = "Każda pozycja jest sprawdzana ponownie tuż przed usunięciem; cokolwiek się zmieniło, zostaje pominięte.";
+"disk.cancel" = "Anuluj";
+"disk.freed" = "Zwolniono %@";
+"disk.skipped" = "pominięto %d";
+"disk.deleting" = "Usuwam…";
+"cli.dryrun.title" = "CO USUNĘŁOBY SPRZĄTANIE (próba na sucho — nic nie jest kasowane)";
+"cli.dryrun.protected" = "Chronione — nie do usunięcia";

@@ -21,8 +21,24 @@ struct DailyFootprint: Codable, Sendable {
     var maxProcesses: Int = 0
     var killedProcesses: Int = 0
     var reclaimedBytes: UInt64 = 0
+    var reclaimedDiskBytes: UInt64 = 0
 
     var cpuHours: Double { cpuSeconds / 3600 }
+
+    init(day: String) { self.day = day }
+
+    /// Ręczne dekodowanie, bo `reclaimedDiskBytes` doszło później,
+    /// a na dysku leżą już pliki bez tego klucza.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        day = try c.decode(String.self, forKey: .day)
+        cpuSeconds = try c.decodeIfPresent(Double.self, forKey: .cpuSeconds) ?? 0
+        peakRSSBytes = try c.decodeIfPresent(UInt64.self, forKey: .peakRSSBytes) ?? 0
+        maxProcesses = try c.decodeIfPresent(Int.self, forKey: .maxProcesses) ?? 0
+        killedProcesses = try c.decodeIfPresent(Int.self, forKey: .killedProcesses) ?? 0
+        reclaimedBytes = try c.decodeIfPresent(UInt64.self, forKey: .reclaimedBytes) ?? 0
+        reclaimedDiskBytes = try c.decodeIfPresent(UInt64.self, forKey: .reclaimedDiskBytes) ?? 0
+    }
 }
 
 /// Księga śladu AI. Akumuluje przyrosty czasu CPU procesów przypisanych do agentów.
@@ -101,6 +117,11 @@ final class FootprintLedger {
         today.maxProcesses = max(today.maxProcesses, snapshot.totalProcesses)
         live = snapshot
         rolloverIfNeeded()
+    }
+
+    func recordDiskCleanup(freed: UInt64) {
+        today.reclaimedDiskBytes += freed
+        save()
     }
 
     func recordKill(reclaimed: UInt64) {

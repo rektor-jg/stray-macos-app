@@ -127,3 +127,20 @@
 "disk.stage.derived" = "DerivedData";
 "disk.stage.caches" = "package caches";
 "disk.stage.modules" = "node_modules";
+
+/* --- kasowanie z dysku --- */
+"disk.trash" = "Move to Trash";
+"disk.deleteperm" = "Delete permanently";
+"disk.cleanall" = "Clean up everything safe (%@)";
+"disk.confirm.title" = "Delete %d items?";
+"disk.confirm.total" = "Total %@";
+"disk.confirm.trash" = "Items go to the Trash — recoverable with one click, but the space frees only once you empty it.";
+"disk.confirm.perm" = "Permanent deletion frees the space right away and cannot be undone.";
+"disk.confirm.scratchpad" = "Session scratchpads touched in the last 24 h are excluded automatically — they belong to sessions still running.";
+"disk.confirm.revalidate" = "Every item is re-checked right before deletion; anything that changed is skipped.";
+"disk.cancel" = "Cancel";
+"disk.freed" = "Freed %@";
+"disk.skipped" = "%d skipped";
+"disk.deleting" = "Deleting…";
+"cli.dryrun.title" = "WHAT A CLEANUP WOULD REMOVE (dry run — nothing is deleted)";
+"cli.dryrun.protected" = "Protected — not deletable";

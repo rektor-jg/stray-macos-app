@@ -375,7 +375,45 @@ swift test                           # 18 testów detektorów, offline
 Stray --scan        # zakładka Procesy
 Stray --footprint   # zakładka Przegląd: ślad AI w systemie
 Stray --disk        # zakładka Dysk: przestrzeń zajęta przez AI
+Stray --clean       # próba na sucho: co usunęłoby sprzątanie (nic nie kasuje)
 ```
+
+## Kasowanie z dysku — cztery bariery
+
+To najniebezpieczniejsza funkcja w aplikacji: `kill` cofa się restartem procesu,
+skasowanego katalogu nie cofa nic. Każda pozycja musi przejść przez cztery bariery,
+sprawdzane **tuż przed usunięciem**, nie przy skanie — raport może mieć kilkanaście minut.
+
+| # | Bariera | Po co |
+|---|---|---|
+| 1 | tylko pozycje oznaczone przez skaner jako bezpieczne | `~/.claude/projects` i `node_modules` nie mają nawet przycisku |
+| 2 | piaskownica ścieżek | poza `DerivedData`, `~/.claude`, cache i scratchpadami nic nie zostanie tknięte |
+| 3 | odrzucenie dowiązań symbolicznych | inaczej kasujemy cel dowiązania, nie link |
+| 4 | ponowna weryfikacja martwego artefaktu | projekt mógł wrócić: odmontowany dysk, przywrócone repo, przełączony worktree |
+
+**Domyślnie do Kosza**, nie `rm` — odwracalne jednym kliknięciem, a na tym samym woluminie
+to zwykła zmiana nazwy, więc działa natychmiast nawet dla 12 GB. Trwałe usunięcie jest schowane
+w osobnym menu, nie obok głównego przycisku, żeby nie dało się w nie trafić przez pomyłkę.
+Cena Kosza jest uczciwie napisana na ekranie potwierdzenia: miejsce wraca dopiero po jego opróżnieniu.
+
+### Piąta bariera, której nie było w planie
+
+W trakcie pisania tego modułu w katalogu scratchpadów leżał katalog sesji zmodyfikowany
+**37 minut wcześniej** — czyli trwającej. „Posprzątaj scratchpady, sesje dawno zakończone"
+wywaliłoby katalog roboczy spod aktywnej pracy.
+
+Stąd próg świeżości: kasowane są wyłącznie podkatalogi nietknięte od doby, a przycisk obiecuje
+tyle, ile faktycznie zniknie. Na maszynie źródłowej wygląda to tak:
+
+```
+× session scratchpads                    6 MB
+    456 MB pominięte: scratchpady sesji tkniętych w ostatniej dobie
+                      są automatycznie pomijane
+```
+
+Weryfikacja bez ryzyka: `Stray --clean` robi próbę na sucho i nic nie kasuje.
+Samo kasowanie żyje wyłącznie w GUI, bo tam jest ekran potwierdzenia — narzędzie, które
+usuwa gigabajty jednym flagiem w terminalu, prędzej czy później zrobi to komuś przez pomyłkę.
 
 ## Języki — bez przełącznika
 
